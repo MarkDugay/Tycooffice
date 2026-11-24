@@ -1,172 +1,201 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Office & Life Tycoon: Executive</title>
+<title>Office & Life Tycoon</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:#1d2033;color:#222;height:100vh;display:flex;flex-direction:column}
 #top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;background:#2b3050;color:#fff}
-#top button{background:#4a5390;color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}#top button.on{background:#f0a030;color:#000}
+#top button,#rooms button{background:#4a5390;color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}#top button.on,#rooms button.on{background:#f0a030;color:#000}
 .b{display:inline-flex;align-items:center;gap:4px;font-size:11px}.b i{display:inline-block;height:8px;width:44px;background:#0004;border-radius:4px;position:relative;overflow:hidden}.b i:after{content:"";position:absolute;inset:0;width:var(--w);background:var(--c)}
-main{flex:1;display:flex;min-height:0}#cv{flex:1;min-width:0;height:100%;background:#8f93c9;cursor:pointer}
-aside{width:390px;background:#f6f3ec;display:flex;flex-direction:column;min-height:0}
+main{flex:1;display:flex;min-height:0}#view{flex:1;display:flex;flex-direction:column;min-width:0}#rooms{display:flex;gap:4px;padding:4px;background:#2b3050;flex-wrap:wrap}#cv{flex:1;min-height:0;width:100%;background:#8f93c9}
+aside{width:400px;background:#f6f3ec;display:flex;flex-direction:column;min-height:0}
 #tabs{display:flex;flex-wrap:wrap;gap:3px;padding:6px;background:#e4dfd2}#tabs button{border:0;border-radius:5px;padding:6px 8px;background:#fff;cursor:pointer}#tabs button.on{background:#3b6fd4;color:#fff}
 #panel{padding:10px;overflow:auto;flex:1}.card{background:#fff;border:1px solid #d8d2c4;border-radius:8px;padding:8px;margin:6px 0}
 button.a{background:#3b6fd4;color:#fff;border:0;border-radius:6px;padding:6px 9px;margin:2px;cursor:pointer}button.a.r{background:#c0392b}button.a.g{background:#2e9e5b}
-input{width:100%;padding:6px;margin:2px 0 6px;border:1px solid #bbb;border-radius:5px;font:inherit}
+input,select{width:100%;padding:6px;margin:2px 0 6px;border:1px solid #bbb;border-radius:5px;font:inherit}
 .hint{background:#fff3c4;padding:8px;border-radius:6px}h3,h4{margin:6px 0}.msg{font-size:12px;border-bottom:1px solid #ddd;padding:3px 0}
-#tip{position:fixed;left:50%;top:60px;transform:translateX(-50%);background:#000c;color:#fff;padding:5px 10px;border-radius:6px;display:none;z-index:5}
+.pg{height:7px;background:#ddd;border-radius:4px}.pg i{display:block;height:7px;border-radius:4px}.cg{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}.cg div{background:#fff;border:1px solid #d8d2c4;border-radius:4px;padding:2px;font-size:10px;min-height:48px;overflow:hidden}
+#tip{position:fixed;left:50%;top:56px;transform:translateX(-50%);background:#000d;color:#fff;padding:6px 12px;border-radius:6px;display:none;z-index:5}
 #modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:9}.mbox{background:#fff;padding:18px;border-radius:12px;width:min(420px,92vw)}
-@media(max-width:800px){main{flex-direction:column}#cv{flex:none;height:42vh}aside{width:100%;flex:1}}
+@media(max-width:800px){main{flex-direction:column}#view{flex:none;height:46vh}aside{width:100%;flex:1}}
 </style></head><body>
 <div id="top"></div><div id="tip"></div>
-<main><canvas id="cv"></canvas><aside><div id="tabs"></div><div id="panel"></div></aside></main>
+<main><section id="view"><div id="rooms"></div><canvas id="cv"></canvas></section><aside><div id="tabs"></div><div id="panel"></div></aside></main>
 <div id="modal"></div>
 <script>
 'use strict';
-const $=s=>document.querySelector(s),KEY='oltycoon2',cv=$('#cv'),cx=cv.getContext('2d');
+const $=s=>document.querySelector(s),KEY='oltycoon3',cv=$('#cv'),cx=cv.getContext('2d');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const rnd=a=>a[Math.random()*a.length|0],cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v)),$f=n=>(n<0?'-$':'$')+Math.round(Math.abs(n)).toLocaleString();
+const rnd=a=>a[Math.random()*a.length|0],cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v)),$f=n=>(n<0?'-$':'$')+Math.round(Math.abs(n)).toLocaleString(),uid=()=>Math.random().toString(36).slice(2,8);
 const NAMES=['Ava','Ben','Cara','Dev','Elle','Finn','Gia','Hugo','Iris','Jon','Kai','Lena','Omar','Pia','Ravi','Sofia'],SUR=['Cruz','Lee','Park','Reyes','Khan','Ortiz','Tan','Novak'];
 const STY=['bold','cautious','analytical','diplomatic'],STR=['Negotiation','Cost control','Team morale','Strategic vision','Process discipline','Innovation'],WK=['Impatient','Avoids conflict','Over-cautious','Micromanages','Slow to delegate','Light on detail'];
 const SKIN=['#f1c27d','#8d5524','#e0ac69','#c68642'],HAIR=['#222222','#6b4423','#d9a441','#aa3333'],SHIRT=['#3b6fd4','#d44b6a','#3aa76d','#e08a2e','#7a5bd0'];
 const DEPT=[['HR Director','HR'],['IT Director','IT'],['CFO','CFO'],['Marketing Director','MKT'],['Sales Director','SAL'],['Operations Director','OPS'],['Support Director','CS'],['R&D Director','R&D']];
 const BOARD=[['Chairman','chair'],['Vice Chairman','vice'],['Independent Director','indep'],['Financial Director','fin'],['Investor Representative','inv'],['Legal Advisor','legal']];
-const SEATS=[[8.5,.8],[9.7,.8],[10.9,.8],[8.5,3.2],[9.7,3.2],[10.9,3.2]];
-const ELEV=[1,5.2],LOBBY=[7,5.2],COFFEE=[1.1,9.2],VEND=[2,9.2],PRINT=[7.5,5.3],REST=[10.9,9],CAF=[[3.3,9.4],[4.4,9.5],[5.5,9.4]],MEET=[[7.5,9.6],[9.6,9.5],[8.5,9.8]];
-const SD=[[1,.9],[3,.9],[5,.9],[1,2.5],[3,2.5],[5,2.5],[1,4.1],[3,4.1],[5,4.1]],DD=DEPT.map((_,i)=>[.6+1.3*i,6.2]),CD=[10.9,6.2];
-const BD=[
-{id:'branch',t:'Open a new branch office',from:'Sales Director',cost:45000,rev:3500,hire:3,risk:.45,gr:.8,legal:0,sit:'Demand is growing in a new region.',alt:'Wait a year, or lease a smaller site.'},
-{id:'land',t:'Buy land for a corporate campus',from:'Operations Director',cost:60000,asset:60000,risk:.3,gr:.5,legal:1,sit:'A parcel next to HQ is for sale.',alt:'Keep renting, or lease more floors.'},
-{id:'acq',t:'Acquire a rival startup',from:'CEO',cost:80000,rev:5500,hire:4,risk:.7,gr:.9,legal:1,sit:'A competitor is open to an offer.',alt:'Partner with them, or hire their team.'},
-{id:'loan',t:'Take a $70,000 bank loan',from:'CFO',cost:-70000,intr:900,debt:70000,risk:.35,gr:.3,legal:0,sit:'Cash reserves limit our growth.',alt:'Cut spending, or sell equity.'},
-{id:'mass',t:'Mass hire: 6 employees',from:'HR Director',cost:12000,hire:6,risk:.35,gr:.6,legal:0,sit:'Departments are over capacity.',alt:'Hire 3 now and 3 later, or outsource.'},
-{id:'prod',t:'Launch a major new product',from:'R&D Director',cost:30000,rev:3000,risk:.55,gr:.7,legal:0,sit:'R&D finished a flagship prototype.',alt:'Delay a quarter for more testing.'},
-{id:'rest',t:'Restructure departments',from:'CEO',cost:8000,prod:8,hap:-10,risk:.5,gr:.3,legal:1,sit:'Overlap between departments slows work.',alt:'Small team swaps only.'},
-{id:'ipo',t:'Take the company public (IPO)',from:'CFO',cost:-150000,debt:0,risk:.8,gr:1,legal:1,minrep:35,sit:'Markets are favorable.',alt:'Stay private and raise a private round.'}];
-const RD=[{t:'Run a new advertising campaign',from:'Marketing Director',cost:4000,rev:600,rep:2},{t:'Upgrade servers',from:'IT Director',cost:3500,prod:3},{t:'Fund a staff training program',from:'HR Director',cost:3000,prod:2,hap:3},
-{t:'Expand the cafeteria and coffee area',from:'Operations Director',cost:5000,hap:5,amen:1},{t:'Hire 2 support agents',from:'Support Director',cost:1500,hire:2},{t:'Build a gym and recreation room',from:'HR Director',cost:9000,hap:8,amen:2}];
-const EV=[{n:'Fire drill',d:'Everyone evacuated and returned.',f(){S.drill=S.t+60}},{n:'Internet outage',d:'IT restored service in two hours.',f(){S.hap-=1}},{n:'Power outage',d:'Operations switched to backup power.',f(){S.dark=S.t+120}},
-{n:'Printer breakdown',d:'Maintenance fixed it.'},{n:'VIP visitor',d:'Sales hosted a VIP client.',f(){S.rep+=1}},{n:'Government inspection',d:'Legal passed the inspection.',esc:{t:'Inspection found minor violations. Pay the fine?',from:'Legal Advisor',cost:4000}},
-{n:'Employee illness',d:'HR arranged sick-leave cover.',f(){S.hap-=1}},{n:'Resignation',d:'HR began replacement hiring.',esc:{t:'A key employee resigned. Counter-offer with a raise?',from:'HR Director',cost:2000,prod:1}},
-{n:'Company anniversary',d:'Staff celebrated.',f(){S.hap+=4}},{n:'Team-building event',d:'Managers organised a team day.',f(){S.hap+=3}}];
+const RM=[['office','Office'],['board','Board Room'],['server','Server Room'],['cafe','Cafeteria'],['home','My Home']];
+const PN=['Website redesign','Mobile app','Ad campaign','Data migration','Client portal','Security audit','Supply chain tool','Support chatbot','Market study','Cloud upgrade','Payroll system','Product prototype'];
+const ICON={work:'\u{1F4BB}',coffee:'\u2615',print:'\u{1F4C4}',eat:'\u{1F374}',game:'\u{1F3AE}',tv:'\u{1F4FA}',shower:'\u{1F6BF}',cook:'\u{1F373}',clean:'\u{1F9F9}'};
+const POOL={office:['Project status is on track.','Can you review my draft?','Client call at 3 PM.','Budget numbers are ready.','Deadline is getting close.','Great job on the release!','How is the family?','Congrats on the baby news!'],
+board:['Growth matters to shareholders.','Let us review the risks.','The numbers look sound.','We need legal input.'],server:['Rack temps are normal.','Backups completed.','Load is under 60%.'],
+cafe:['Lunch is on me!','Weekend plans?','Coffee after this?','Did you see the baby photos?'],home:['How was your day?','Dinner smells great!','Let us watch a movie.','Time for a bedtime story.','Weekend trip soon?','I am proud of you.']};
 const SAY={bold:'We are ahead of plan. Let us push harder.',cautious:'I would like to keep healthy buffers.',analytical:'Metrics are inside tolerance.',diplomatic:'The team is aligned and cooperative.'};
-let S,PP=[],spd=1,paused=false,tab='dash',acc=0,last=0,tc=0,z=1,ox=0,oy=0,items=[];
-const day=()=>(S.t/1440|0)+1,hour=()=>(S.t%1440)/60,prodF=()=>cl(60+.4*S.hap+S.prodB,40,130)/100;
-const val=()=>Math.round(S.cash+S.assets+S.extraRev*12+S.rpt.flow*360-S.debt);
-/* ---- state & people ---- */
-function ex(tag,role){return{name:rnd(NAMES)+' '+rnd(SUR),tag,role,sty:rnd(STY),risk:+(.2+Math.random()*.7).toFixed(2),str:rnd(STR),weak:rnd(WK),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)],say:''}}
-function mk(o){S={v:2,t:7*60+50,nid:0,name:o.name,co:o.co,cash:150000,rep:20,hap:65,prodB:0,extraRev:0,intr:0,debt:0,assets:0,remote:0,amen:0,drill:0,dark:0,ceo:ex('CEO','Chief Executive Officer'),
-dirs:DEPT.map(d=>ex(d[1],d[0])),board:BOARD.map(b=>({...ex(b[1],b[0]),title:b[0],key:b[1]})),staff:[],queue:[],mt:null,log:['You are the President. Your managers run the company; decisions will arrive in your Inbox.'],
-rpt:{d:1,rev:0,exp:0,flow:0,hap:65,prod:86,pend:0,risks:'None'}};for(let i=0;i<6;i++)S.staff.push(mkStaff());sync()}
-const mkStaff=()=>({name:rnd(NAMES),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)]});
-function mkP(kind,e,di){return{kind,name:e.name,role:e.role||'Staff',tag:e.tag||'',look:e.look,x:ELEV[0],y:ELEV[1],tx:ELEV[0],ty:ELEV[1],wait:0,in:false,out:0,sit:false,atDesk:false,di,arr:8+Math.random(),dep:17.5+Math.random()}}
-function sync(){PP=[mkP('ceo',S.ceo,0)];S.dirs.forEach((d,i)=>PP.push(mkP('dir',d,i)));S.staff.forEach((s,i)=>PP.push(mkP('staff',s,i)));
-PP.push(mkP('guard',{name:'Guard',look:[SKIN[0],'#222','#333f55']},0),mkP('clean',{name:'Cleaner',look:[SKIN[1],'#222','#6aa9a0']},0))}
-function hireN(n){for(let i=0;i<n;i++){if(S.staff.length<9){const s=mkStaff();S.staff.push(s);PP.push(mkP('staff',s,S.staff.length-1))}else S.remote++}}
-const deskOf=p=>{const d=p.kind=='ceo'?CD:p.kind=='dir'?DD[p.di]:SD[p.di];return[d[0]+.5,d[1]+1.15]};
-function say(m){S.log.unshift('Day '+day()+': '+m);S.log.length=Math.min(S.log.length,40)}
+const BD=[{id:'branch',t:'Open a new branch office',from:'Sales Director',cost:45000,rev:3500,hire:3,risk:.45,gr:.8,legal:0,sit:'Demand is growing in a new region.',alt:'Wait a year, or lease a smaller site.'},
+{id:'land',t:'Buy land for a corporate campus',from:'Operations Director',cost:60000,asset:60000,risk:.3,gr:.5,legal:1,sit:'A parcel next to HQ is for sale.',alt:'Keep renting.'},
+{id:'acq',t:'Acquire a rival startup',from:'CEO',cost:80000,rev:5500,hire:4,risk:.7,gr:.9,legal:1,sit:'A competitor is open to an offer.',alt:'Partner with them instead.'},
+{id:'loan',t:'Take a $70,000 bank loan',from:'CFO',cost:-70000,intr:900,debt:70000,risk:.35,gr:.3,legal:0,sit:'Cash reserves limit our growth.',alt:'Cut spending, or sell equity.'},
+{id:'mass',t:'Mass hire: 6 employees',from:'HR Director',cost:12000,hire:6,risk:.35,gr:.6,legal:0,sit:'Departments are over capacity.',alt:'Hire 3 now and 3 later.'},
+{id:'prod',t:'Launch a major new product',from:'R&D Director',cost:30000,rev:3000,risk:.55,gr:.7,legal:0,sit:'R&D finished a flagship prototype.',alt:'Delay a quarter for testing.'},
+{id:'ipo',t:'Take the company public (IPO)',from:'CFO',cost:-150000,risk:.8,gr:1,legal:1,minrep:35,sit:'Markets are favorable.',alt:'Raise a private round.'}];
+const RD=[{t:'Run a new advertising campaign',from:'Marketing Director',cost:4000,rev:600,rep:2},{t:'Upgrade servers',from:'IT Director',cost:3500,prod:3},{t:'Fund a staff training program',from:'HR Director',cost:3000,prod:2,hap:3},{t:'Expand the cafeteria',from:'Operations Director',cost:5000,hap:5},{t:'Build a recreation room',from:'HR Director',cost:9000,hap:8}];
+let S,PP=[],LC={},view='office',spd=1,paused=false,tab='dash',acc=0,last=0,z=1,ox=0,oy=0,items=[],calM=0;
+const day=()=>(S.t/1440|0)+1,hour=()=>(S.t%1440)/60,prodF=()=>cl(60+.4*S.hap+S.prodB+S.fam.bond/10,40,130)/100;
+const absent=u=>S.leaves.some(l=>l.uid==u&&l.st=='ok'&&day()>=l.from&&day()<l.from+l.days),away=()=>absent('me');
+const val=()=>Math.round(S.cash+S.assets+S.extraRev*12+S.rpt.flow*360-S.debt),tip=m=>{const t=$('#tip');t.textContent=m;t.style.display='block';clearTimeout(tip.h);tip.h=setTimeout(()=>t.style.display='none',3000)};
+function ex(tag,role){return{uid:uid(),name:rnd(NAMES)+' '+rnd(SUR),tag,role,dept:0,sty:rnd(STY),risk:+(.2+Math.random()*.7).toFixed(2),str:rnd(STR),weak:rnd(WK),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)],say:''}}
+const mkStaff=d=>({uid:uid(),name:rnd(NAMES)+' '+rnd(SUR),dept:d,look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)]});
+function newProj(){const size=40+Math.random()*80|0;return{id:++S.nid,name:rnd(PN),dept:Math.random()*8|0,prog:0,size,due:day()+10+(Math.random()*14|0),reward:size*100,done:0}}
+function mk(o){S={v:3,t:7*60+50,nid:0,name:o.name,co:o.co,cash:150000,rep:20,hap:65,prodB:0,extraRev:0,intr:0,debt:0,assets:0,dark:0,partyDay:0,ceo:ex('CEO','Chief Executive Officer'),
+dirs:DEPT.map((d,i)=>({...ex(d[1],d[0]),dept:i})),board:BOARD.map(b=>({...ex(b[1],b[0]),title:b[0],key:b[1]})),staff:[1,3,4,5,6,7].map(mkStaff),queue:[],mt:null,log:['You are the President. Managers run the company and report to you automatically.'],reports:[],
+projs:[],leaves:[],events:[],rels:[],recs:[],fam:{partner:{uid:uid(),name:rnd(NAMES),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)]},kids:[],pending:0,bond:30},rpt:{d:1,rev:0,exp:0,flow:0,hap:65,prod:86,risks:'None'}};
+for(let i=0;i<3;i++)S.projs.push(newProj());sync()}
+function mkP(kind,e,si,home){return{kind,uid:e.uid,name:e.name,role:e.role||'',tag:e.tag||'',look:e.look,dept:e.dept,si,home,sc:kind=='kid'?.7:1,idn:Math.random()*99|0,room:null,x:0,y:0,g:null,wait:0,in:0,out:0,sit:0,act:'',arr:8+Math.random(),dep:17.5+Math.random()}}
+function sync(){PP=[mkP('ceo',S.ceo,0)];S.dirs.forEach((d,i)=>PP.push(mkP('dir',d,1+i)));S.staff.forEach((s,i)=>PP.push(mkP('staff',s,9+i)));
+PP.push(mkP('guard',{name:'Guard',uid:'g',look:[SKIN[0],'#222','#333f55']},0),mkP('clean',{name:'Cleaner',uid:'c',look:[SKIN[1],'#222','#6aa9a0']},0),mkP('me',{name:S.name,uid:'me',look:[SKIN[0],'#222',SHIRT[0]]},0,1),mkP('pa',S.fam.partner,0,1));S.fam.kids.forEach(k=>PP.push(mkP('kid',k,0,1)))}
+function hireN(n,d){for(let i=0;i<n;i++){const s=mkStaff(d==null?Math.random()*8|0:d);S.staff.push(s);PP.push(mkP('staff',s,8+S.staff.length))}}
+function say(m){S.log.unshift('Day '+day()+': '+m);S.log.length=Math.min(S.log.length,50)}
+/* ---- room layouts: size and equipment scale with headcount ---- */
+function lay(r){const k=r+S.staff.length+(r=='home'?S.fam.kids.length:0);return LC[k]||(LC[k]=build(r,S.staff.length))}
+function build(r,n){const hc=n+9,L={w:12,h:9,O:[],sp:{},door:[1,7],wall:'#e6e0d4',fl:['#c9ccf0','#bcc0ea'],win:1};
+if(r=='office'){const c=Math.max(4,Math.ceil(Math.sqrt(hc*1.4))),rows=Math.ceil(hc/c);L.w=c*2+2;L.h=Math.ceil(rows*2.4+4.5);L.door=[.8,L.h-1.2];L.seat=[];
+for(let i=0;i<hc;i++){const x=1+(i%c)*2,y=1+(i/c|0)*2.4;L.seat.push([x+.5,y+1.15]);L.O.push([x,y,1,.9,12,i<9?'#cdb78f':'#d9c7a3'],[x+.25,y+.2,.5,.1,10,'#4a90d9',12,'m'],[x+.3,y+1,.4,.4,6,'#3b5fb0'])}
+const by=L.h-2.2;L.O.push([.3,by-.3,.6,.6,24,'#7a4a2a'],[1.6,by-.3,.7,.6,30,'#d44b6a'],[L.w-2.5,by-.3,.7,.7,16,'#ddd'],[L.w/2-.4,by+1.6,.8,.5,10,'#2f9e4f']);
+L.sp={coffee:[1.2,by+.6],vend:[2,by+.6],print:[L.w-2,by+.7],chat:[[L.w/2-1.2,by+1],[L.w/2+1.2,by+1],[L.w/2,by+.6]]}}
+else if(r=='board'){L.w=13;L.fl=['#c9a06b','#be9660'];L.wall='#d9cdb8';L.door=[1.2,7.6];L.O.push([3.5,2.8,6,2.6,9,'#6b4a2f'],[5,.1,4,.2,34,'#223344',10],[.1,2,.2,3,30,'#fff',12],[11.5,.4,.8,.8,24,'#2f9e4f'],[.5,.4,.8,.8,24,'#2f9e4f']);
+L.seat=[[4.5,2.1],[6.5,2.1],[8.5,2.1],[4.5,5.9],[6.5,5.9],[8.5,5.9]];L.ceoSeat=[10.8,4.1];L.seat.concat([L.ceoSeat]).forEach(s=>L.O.push([s[0]-.2,s[1]-.2,.4,.4,6,'#2a2a2a']))}
+else if(r=='server'){const nr=Math.ceil(hc/4)+4,per=Math.min(8,Math.ceil(Math.sqrt(nr*2))),rows=Math.ceil(nr/per);L.w=Math.ceil(3+per*1.8);L.h=Math.ceil(4+rows*3.2);L.fl=['#4b5275','#434a6b'];L.wall='#5a6288';L.win=0;L.door=[.8,L.h-1.2];L.sp.rack=[];
+for(let i=0;i<nr;i++){const x=2+(i%per)*1.8,y=1.6+(i/per|0)*3.2;L.O.push([x,y,1.2,1,46,'#2b2f3a',0,'r']);L.sp.rack.push([x+.6,y+1.7])}
+L.O.push([L.w-3.5,L.h-2.4,1.6,.8,12,'#cdb78f'],[L.w-3.2,L.h-2.3,.5,.1,10,'#4a90d9',12,'m'],[.3,.2,1.2,.6,30,'#9fb4c8'])}
+else if(r=='cafe'){const T=Math.ceil(hc/6)+2,cols=Math.ceil(Math.sqrt(T*1.5)),rows=Math.ceil(T/cols);L.w=Math.ceil(cols*2.8+2.5);L.h=Math.ceil(rows*2.4+4);L.fl=['#e8dcc0','#dfd2b4'];L.door=[.8,L.h-1.2];L.sp.eat=[];
+L.O.push([1,.3,L.w-2,.8,14,'#c9a46a'],[1.4,.2,.7,.6,30,'#d44b6a'],[3,.2,.6,.6,26,'#7a4a2a']);for(let i=0;i<T;i++){const x=1.5+(i%cols)*2.8,y=2.6+(i/cols|0)*2.4;L.O.push([x,y,1.4,.9,9,'#b98e5a']);L.sp.eat.push([x+.7,y+1.5],[x+.7,y-.4])}}
+else{L.fl=['#e3d5bd','#d9caae'];L.wall='#efe6d6';L.door=[6,8.2];L.O.push([1,1,2.4,3,8,'#e8e8f5'],[1,1,2.4,.4,18,'#7a5a3a'],[7,.4,1.3,1.3,36,'#bfe3f0'],[5.2,.4,.6,.8,12,'#fff'],[8.8,.4,2.4,.8,14,'#c9a46a'],[11.2,.4,.7,.7,44,'#ddd'],[8.5,2.8,1.8,.9,9,'#b98e5a'],
+[.5,5.5,2,1,12,'#444'],[.8,5.6,.6,.1,10,'#4a90d9',12,'m'],[1.6,5.6,.6,.1,10,'#4a90d9',12,'m'],[.9,6.9,.4,.4,6,'#222'],[5,5.8,.3,2,24,'#111'],[8,5.8,1,2.4,10,'#2f5fd0'],[9,5.8,.3,2.4,22,'#254bb0'],[3.6,.4,.5,.5,20,'#2f9e4f']);
+L.sp={bed:[2.2,2.5],shower:[7.6,2.1],cook:[9.6,1.6],eat:[[8.6,4.2],[10.8,4.2]],tv:[[8.4,6.6],[8.4,7.4]],game:[1.5,7.2]}}return L}
 /* ---- simulation ---- */
-function tick(){const o=S.t;S.t+=10;S.hap=cl(S.hap);if((o/1440|0)!=(S.t/1440|0))newDay()}
-function newDay(){const hc=S.staff.length+S.remote,pr=prodF(),rev=((hc*4200+20000)*1.5*pr+S.extraRev)/30,exp=(hc*1800+37000+S.intr)/30;
-S.cash+=rev-exp;S.hap=cl(S.hap+(55+S.amen*4-(S.cash<20000?12:0)-S.hap)*.1);
-if(Math.random()<.18)event();if(day()%3==0&&S.queue.length<4)genProp();
-const rk=[];if(S.cash<30000)rk.push('Cash reserves are low');if(S.hap<45)rk.push('Morale is falling');if(S.cash<0)rk.push('Company is in debt');
-S.rpt={d:day(),rev,exp,flow:rev-exp,hap:S.hap,prod:pr*100,pend:S.queue.length,risks:rk.join('; ')||'None'};say('Morning report ready. Cash flow '+$f(rev-exp)+'/day.');save();R()}
-function event(){const e=rnd(EV);if(e.esc&&Math.random()<.5){S.queue.push({...e.esc,kind:'r',id:'r'+(++S.nid)});say('Escalated to you: '+e.n)}else{if(e.f)e.f();say('Event: '+e.n+'. '+e.d+' Managers handled it.')}}
-function genProp(){if(!S.queue.some(q=>q.kind=='b')&&Math.random()<.45){const c=BD.filter(d=>(d.minrep||0)<=S.rep&&!S.queue.some(q=>q.id==d.id));
-if(c.length){const d={...rnd(c),kind:'b',avail:0};S.queue.push(d);say('CEO '+S.ceo.name+': "This matter requires Board approval." ('+d.t+')');return}}
-const d={...rnd(RD),kind:'r',id:'r'+(++S.nid)};if(d.cost<=1500){applyR(d);say('CEO approved automatically: '+d.t);return}S.queue.push(d);say(d.from+' proposes: '+d.t)}
-function applyR(d){S.cash-=d.cost;S.hap+=d.hap||0;S.prodB+=d.prod||0;S.extraRev+=d.rev||0;S.rep+=d.rep||0;S.amen+=d.amen||0;hireN(d.hire||0)}
-function applyB(d){const ok=Math.random()>d.risk*.45,m=ok?1:.25;S.cash-=d.cost;S.extraRev+=(d.rev||0)*m;hireN(d.hire||0);S.assets+=d.asset||0;S.intr+=d.intr||0;S.debt+=d.debt||0;S.prodB+=d.prod||0;S.hap+=d.hap||0;S.rep+=ok?4:-3;
-say('Board approved: '+d.t+(ok?'. It is going well.':'. Results are below expectations.'))}
-function opin(d){const hi=d.risk>.5;return S.board.map(m=>{let t,v;switch(m.key){
-case'inv':v=d.gr>=.5?1:0;t=v?'Shareholders expect growth. I support this.':'This will not move the share price much.';break;
-case'fin':v=hi||d.cost>S.cash*.5?-1:1;t=v<0?'This investment is risky for our cash position.':'The numbers are acceptable.';break;
-case'legal':v=d.legal?-1:1;t=d.legal?'There are regulatory concerns we must address.':'I see no legal objections.';break;
-case'chair':v=d.risk-d.gr*.5>.2?0:1;t=v?'I support it, with close monitoring.':'I would want revisions before committing.';break;
-case'vice':v=d.risk>.4?-1:1;t=v>0?'Prudent. I am in favour.':'Too much downside for me right now.';break;
-default:v=d.cost<S.cash*.4?1:0;t=v?'Sound, though alternatives exist.':'We should explore alternatives first.'}return{m,t,v}})}
-/* ---- movement / AI ---- */
-function go(p,t,d){p.tx=t[0];p.ty=t[1];p.atDesk=!!d}
-function step(p,dt){const dx=p.tx-p.x,dy=p.ty-p.y,d=Math.hypot(dx,dy);if(d>.06){const s=Math.min(d,1.5*spd*dt);p.x+=dx/d*s;p.y+=dy/d*s;p.sit=false;return false}p.sit=p.atDesk;return true}
-function pick(p){const h=hour(),r=Math.random();if(S.drill>S.t)return[ELEV,'\u{1F6A8}'];
-if(p.kind=='guard')return[rnd([[3,8],[9,5],[5,3],[1.5,9.5],[10,7]]),'\u{1F526}'];if(p.kind=='clean')return[rnd([[2,5.3],[6,9],[9,4.5],[4,6]]),'\u{1F9F9}'];
-if(S.mt&&p.kind=='ceo')return[[11.2,2],'\u{1F4CA}'];if(h>=12&&h<13.2&&r<.8)return[rnd(CAF),'\u{1F374}'];
-if(r<.5)return[null,''];if(r<.62)return[COFFEE,'\u2615'];if(r<.7)return[PRINT,'\u{1F4C4}'];if(r<.77)return[REST,''];if(r<.83)return[VEND,'\u{1F36B}'];return[rnd(MEET),'\u{1F4AC}']}
-function presence(p,h){return p.kind=='ceo'?h>=p.arr-.6&&h<19:p.kind=='dir'?h>=p.arr-.4&&h<p.dep+1:p.kind=='staff'?h>=p.arr&&h<p.dep:p.kind=='guard'?h>=19||h<6:h>=19.5||h<4}
-function move(dt){const h=hour();PP.forEach(p=>{
-if(p.kind=='board'){if(step(p,dt)&&p.out)p.dead=1;return}
-const pr=presence(p,h);if(pr&&!p.in){p.in=true;p.out=0;p.x=ELEV[0];p.y=ELEV[1];go(p,deskOf(p),1);p.wait=2+Math.random()*4}
-if(!pr&&p.in&&!p.out){p.out=1;p.act='';go(p,ELEV)}if(!p.in)return;
-if(step(p,dt)){if(p.out){p.in=false;p.out=0;return}p.wait-=dt*spd;if(p.wait<=0){p.wait=3+Math.random()*7;const[t,a]=pick(p);p.act=a;t?go(p,t):go(p,deskOf(p),1)}}});
-PP=PP.filter(p=>!p.dead);const m=S.mt;if(m&&m.ph=='enter'&&PP.filter(p=>p.kind=='board').every(p=>Math.hypot(p.tx-p.x,p.ty-p.y)<.1)){m.ph='present';R()}}
-/* ---- rendering ---- */
+function tick(){const o=S.t;S.t+=10;const h=hour();if(h>=9&&h<17){const pr=prodF();S.projs.forEach(p=>{if(!p.done){p.prog+=rate(p)*pr/48;if(p.prog>=p.size)finish(p)}})}if((o/1440|0)!=(S.t/1440|0))newDay()}
+const workers=p=>1+S.staff.filter(s=>s.dept==p.dept&&!absent(s.uid)).length,rate=p=>workers(p)*3.2;
+const pstat=p=>p.done?'Done':day()>p.due?'Late':(p.size-p.prog)/Math.max(.1,rate(p)*prodF())>p.due-day()?'At risk':'On track';
+function finish(p){p.done=1;const late=day()>p.due,r=late?p.reward*.7|0:p.reward;S.cash+=r;S.rep+=late?0:2;say('Project "'+p.name+'" completed by '+DEPT[p.dept][0]+(late?' (late)':'')+' +'+$f(r))}
+function newDay(){const hc=S.staff.length,pr=prodF(),rev=((hc*4200+20000)*1.5*pr+S.extraRev)/30,exp=(hc*1800+37000+S.intr)/30;S.cash+=rev-exp;
+S.hap=cl(S.hap+(55+S.fam.bond/25-(S.cash<20000?12:0)-S.hap)*.1);S.fam.bond=cl(S.fam.bond-.8);const d=day();
+S.events.filter(e=>e.day==d).forEach(e=>{say('Event today: '+e.title);if(e.type=='party'){S.hap=cl(S.hap+5);S.partyDay=d}});if(d%90==0){say('Company anniversary!');S.hap=cl(S.hap+4)}
+if(S.projs.filter(p=>!p.done).length<Math.max(3,Math.ceil(hc/3))&&Math.random()<.3){const p=newProj();S.projs.push(p);say('Sales won a new project: '+p.name)}S.projs=S.projs.filter(p=>!p.done||d-p.due<30);
+if(Math.random()<.08&&hc){const e=rnd(S.staff);if(!S.leaves.some(l=>l.uid==e.uid&&l.st=='pending'))S.leaves.push({id:++S.nid,uid:e.uid,name:e.name,from:d+2+(Math.random()*4|0),days:2+(Math.random()*4|0),st:'pending',why:rnd(['Vacation','Family matter','Medical'])})}
+rels();if(S.fam.pending&&d>=S.fam.pending){const k={uid:uid(),name:rnd(NAMES),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)]};S.fam.kids.push(k);S.fam.pending=0;PP.push(mkP('kid',k,0,1));say('Your family welcomed a baby: '+k.name+'!');tip('A baby was born in your family!')}
+if(d%3==0)recs();if(S.queue.length<4&&d%3==0)genProp();if(Math.random()<.15)event();
+const rk=[];if(S.cash<30000)rk.push('Cash reserves are low');if(S.hap<45)rk.push('Morale is falling');const act=S.projs.filter(p=>!p.done),lt=act.filter(p=>pstat(p)=='Late').length,ar=act.filter(p=>pstat(p)=='At risk').length;if(lt)rk.push(lt+' project(s) late');
+S.rpt={d,rev,exp,flow:rev-exp,hap:S.hap,prod:pr*100,risks:rk.join('; ')||'None'};
+S.reports.unshift('<b>Day '+d+(d%7==0?' WEEKLY':' morning')+' report</b>: cash flow '+$f(rev-exp)+'/day, cash '+$f(S.cash)+', projects '+act.length+' active ('+ar+' at risk, '+lt+' late), happiness '+(S.hap|0)+', risks: '+S.rpt.risks+(away()?' (you are on leave; CEO covering)':''));S.reports.length=Math.min(S.reports.length,14);
+tip('Auto-report received: Day '+d);save();R()}
+function rels(){const all=[...S.dirs,...S.staff];if(Math.random()<.06){const f=all.filter(e=>!S.rels.some(r=>r.a==e.uid||r.b==e.uid)),a=rnd(f),b=rnd(f);if(f.length>1&&a!=b){S.rels.push({a:a.uid,b:b.uid,an:a.name,bn:b.name,t:'dating',since:day(),kids:0});say(a.name+' and '+b.name+' started dating.')}}
+S.rels.forEach(r=>{if(r.t=='dating'&&day()-r.since>20&&Math.random()<.04){r.t='married';say(r.an+' and '+r.bn+' got married!')}else if(r.t=='married'&&r.kids<3&&Math.random()<.03){r.kids++;say(r.an+' and '+r.bn+' welcomed a baby!');S.leaves.push({id:++S.nid,uid:r.a,name:r.an,from:day()+1,days:30,st:'pending',why:'Parental leave'})}})}
+function recs(){const ld=DEPT.map((_,d)=>S.projs.filter(p=>!p.done&&p.dept==d).length/(1+S.staff.filter(s=>s.dept==d).length)),d=ld.indexOf(Math.max(...ld));if(ld[d]<1.2||S.cash<20000){S.recs=[];return}
+const n=S.projs.filter(p=>!p.done&&p.dept==d).length;S.recs=[1,2,3].map(()=>({id:++S.nid,name:rnd(NAMES)+' '+rnd(SUR),dept:d,skill:50+Math.random()*40|0,sal:1700+(Math.random()*900|0),why:'Backlog of '+n+' project(s) in '+DEPT[d][0].replace(' Director','')+' with '+S.staff.filter(s=>s.dept==d).length+' staff.'}));say('HR recommends hiring in '+DEPT[d][0].replace(' Director','')+' (see Inbox).')}
+function event(){const e=rnd([['Internet outage','IT restored service in two hours.'],['Printer breakdown','Maintenance fixed it.'],['VIP visitor','Sales hosted a VIP client.'],['Power outage','Operations used backup power.']]);if(e[0]=='Power outage')S.dark=S.t+120;say('Event: '+e[0]+'. '+e[1]+' Managers handled it.')}
+function genProp(){if(!S.queue.some(q=>q.kind=='b')&&Math.random()<.45){const c=BD.filter(d=>(d.minrep||0)<=S.rep&&!S.queue.some(q=>q.id==d.id));if(c.length){S.queue.push({...rnd(c),kind:'b',avail:0});say('CEO '+S.ceo.name+': "This matter requires Board approval."');return}}
+const d={...rnd(RD),kind:'r',id:'r'+(++S.nid)};if(d.cost<=1500||(away()&&d.cost<=5000)){applyR(d);say('CEO approved automatically: '+d.t);return}S.queue.push(d);say(d.from+' proposes: '+d.t)}
+function applyR(d){S.cash-=d.cost;S.hap+=d.hap||0;S.prodB+=d.prod||0;S.extraRev+=d.rev||0;S.rep+=d.rep||0}
+function applyB(d){const ok=Math.random()>d.risk*.45,m=ok?1:.25;S.cash-=d.cost;S.extraRev+=(d.rev||0)*m;hireN(d.hire||0);S.assets+=d.asset||0;S.intr+=d.intr||0;S.debt+=d.debt||0;S.rep+=ok?4:-3;say('Board approved: '+d.t+(ok?'. Going well.':'. Below expectations.'))}
+function opin(d){return S.board.map(m=>{let t,v;switch(m.key){case'inv':v=d.gr>=.5?1:0;t=v?'Shareholders expect growth. I support this.':'This will not move the share price much.';break;
+case'fin':v=d.risk>.5||d.cost>S.cash*.5?-1:1;t=v<0?'This is risky for our cash position.':'The numbers are acceptable.';break;case'legal':v=d.legal?-1:1;t=d.legal?'There are regulatory concerns.':'No legal objections.';break;
+case'chair':v=d.risk-d.gr*.5>.2?0:1;t=v?'I support it, with monitoring.':'I want revisions first.';break;case'vice':v=d.risk>.4?-1:1;t=v>0?'Prudent. In favour.':'Too much downside.';break;default:v=d.cost<S.cash*.4?1:0;t=v?'Sound, though alternatives exist.':'Explore alternatives first.'}return{m,t,v}})}
+/* ---- movement ---- */
+const G=(room,s,act,sit)=>({room,x:s[0],y:s[1],act,sit:!!sit});
+function pickH(p){const h=hour(),H=lay('home'),r=Math.random();if(h<6.5||h>=22.5)return G('home',H.sp.bed,'sleep');
+if(h<8)return r<.4?G('home',H.sp.shower,'shower'):r<.7?G('home',H.sp.cook,'cook'):G('home',rnd(H.sp.eat),'eat',1);
+if(h>=18&&h<19.5&&r<.7)return r<.3?G('home',H.sp.cook,'cook'):G('home',rnd(H.sp.eat),'eat',1);
+return r<.3?G('home',H.sp.game,'game',1):r<.6?G('home',rnd(H.sp.tv),'tv',1):r<.8?G('home',rnd(H.sp.tv),'talk',1):G('home',rnd(H.sp.eat),'talk',1)}
+function pick(p){if(p.home)return pickH(p);const h=hour(),r=Math.random(),A=lay('office');
+if(p.kind=='guard'||p.kind=='clean'){const rm=rnd(['office','server','cafe']),L=lay(rm);return G(rm,[1+Math.random()*(L.w-2),L.h-1.5-Math.random()*2],p.kind=='guard'?'walk':'clean')}
+if(S.mt&&p.kind=='ceo')return G('board',lay('board').ceoSeat,'talk',1);const desk=G('office',A.seat[p.si],'work',1),party=S.partyDay==day()&&h>=15&&h<17.5;
+if(party||(h>=12&&h<13.2&&r<.8))return G('cafe',rnd(lay('cafe').sp.eat),party?'talk':'eat',1);if(r<.5)return desk;if(r<.6)return G('office',A.sp.coffee,'coffee');if(r<.66)return G('office',A.sp.print,'print');
+if(r<.78)return G('office',rnd(A.sp.chat),'talk');if(r<.85&&p.dept==1)return G('server',rnd(lay('server').sp.rack),'work');if(r<.9)return G('cafe',rnd(lay('cafe').sp.eat),'eat',1);return desk}
+function presence(p,h){if(!p.home&&p.uid&&absent(p.uid))return false;switch(p.kind){case'ceo':return h>=p.arr-.6&&h<19;case'dir':return h>=p.arr-.4&&h<p.dep+1;case'staff':return h>=p.arr&&h<p.dep;case'guard':return h>=19||h<6;case'clean':return h>=19.5||h<4;
+case'me':return h<8||h>=17.5||away();case'pa':return h<8.5||h>=17.5;case'kid':return h<8||h>=15}return false}
+function walk(p,dt){const g=p.g;let tx,ty;if(p.room!=g.room){[tx,ty]=lay(p.room).door}else{tx=g.x;ty=g.y}const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
+if(d>.08){const s=Math.min(d,1.2*spd*dt);p.x+=dx/d*s;p.y+=dy/d*s;p.sit=0;p.act='walk';return false}if(p.room!=g.room){p.room=g.room;[p.x,p.y]=lay(g.room).door;return false}p.sit=g.sit;p.act=g.act;return true}
+function move(dt){const h=hour();PP.forEach(p=>{if(p.kind=='board'){if(walk(p,dt)&&p.out)p.dead=1;return}const pr=presence(p,h);
+if(pr&&!p.in){p.in=1;p.out=0;p.room=p.home?'home':'office';[p.x,p.y]=lay(p.room).door;p.g=p.home?pickH(p):G('office',lay('office').seat[p.si],'work',1);p.wait=2}
+if(!pr&&p.in&&!p.out){p.out=1;p.g=G(p.room,lay(p.room).door,'walk')}if(!p.in)return;
+if(walk(p,dt)){if(p.out){p.in=0;p.out=0;return}p.wait-=dt*spd;if(p.wait<=0){p.wait=8+Math.random()*14;p.g=pick(p)}}});PP=PP.filter(p=>!p.dead);
+const m=S.mt;if(m&&m.ph=='enter'&&PP.filter(p=>p.kind=='board').every(p=>p.sit)){m.ph='present';R()}}
+/* ---- rendering (same camera angle in every room, zoom fits the room) ---- */
 const P=(x,y)=>[ox+(x-y)*32*z,oy+(x+y)*16*z],Q=(x,y,h)=>{const p=P(x,y);return[p[0],p[1]-h*z]};
 const sh=(c,k)=>'#'+[1,3,5].map(i=>Math.min(255,parseInt(c.substr(i,2),16)*k|0).toString(16).padStart(2,'0')).join('');
 function poly(p,c){cx.beginPath();p.forEach((q,i)=>i?cx.lineTo(q[0],q[1]):cx.moveTo(q[0],q[1]));cx.closePath();cx.fillStyle=c;cx.fill()}
-function box(x,y,w,d,h,c,z0=0){const f=(a,b,hh)=>Q(a,b,z0+hh);poly([f(x,y,h),f(x+w,y,h),f(x+w,y+d,h),f(x,y+d,h)],sh(c,1.12));
+function box(x,y,w,d,h,c,z0=0){const f=(a,b,hh)=>Q(a,b,z0+hh);poly([f(x,y,h),f(x+w,y,h),f(x+w,y+d,h),f(x,y+d,h)],sh(c,1.12));poly([f(x,y+d,h),f(x+w,y+d,h),f(x,y+d,0),f(x,y+d,0)],sh(c,.85));
 poly([f(x,y+d,h),f(x+w,y+d,h),f(x+w,y+d,0),f(x,y+d,0)],sh(c,.85));poly([f(x+w,y+d,h),f(x+w,y,h),f(x+w,y,0),f(x+w,y+d,0)],sh(c,.68))}
-const add=(d,f)=>items.push([d,f]),B=(x,y,w,d,h,c,z0)=>add(x+w/2+y+d/2,()=>box(x,y,w,d,h,c,z0));
-function person(x,y,l,sit,t,tag){const[px,py]=P(x,y),k=z*2,w=sit?0:Math.sin(t*9)*k,lh=sit?5:9;cx.fillStyle='#0003';cx.beginPath();cx.ellipse(px,py,6*k,2.4*k,0,0,7);cx.fill();
-cx.fillStyle='#2b3a67';cx.fillRect(px-3*k,py-lh*k,2*k,lh*k+Math.max(0,w));cx.fillRect(px+k,py-lh*k,2*k,lh*k-Math.min(0,w));
-const by=py-(sit?14:18)*k;cx.fillStyle=l[2];cx.fillRect(px-4*k,by,8*k,9*k);cx.fillRect(px-5*k,by+k,1.5*k,6*k);cx.fillRect(px+3.5*k,by+k,1.5*k,6*k);
-cx.fillStyle=l[0];cx.fillRect(px-3*k,by-6*k,6*k,6*k);cx.fillStyle=l[1];cx.fillRect(px-3*k,by-7*k,6*k,2.5*k);
-if(tag){cx.fillStyle='#222';cx.font='bold '+(8*z+3)+'px system-ui';cx.textAlign='center';cx.fillText(tag,px,by-10*k)}}
-function desk(d,t,c){add(d[0]+d[1]+1,()=>{box(d[0],d[1],1,.9,12,c||'#d9c7a3');box(d[0]+.25,d[1]+.2,.5,.1,10,Math.sin(t*2+d[0])>0?'#4a90d9':'#6fb1ec',12)});add(d[0]+d[1]+1.5,()=>box(d[0]+.3,d[1]+1,.4,.4,6,'#3b5fb0'))}
-function draw(t){const W=cv.clientWidth,H=cv.clientHeight,dp=devicePixelRatio||1;if(cv.width!=W*dp||cv.height!=H*dp){cv.width=W*dp;cv.height=H*dp}
-cx.setTransform(dp,0,0,dp,0,0);cx.clearRect(0,0,W,H);if(!S)return;z=Math.min(W/720,H/450);ox=W/2-32*z;oy=(H-442*z)/2+90*z;
-for(let i=0;i<12;i++)for(let j=0;j<10;j++){const a=(i+j)%2;poly([P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],i>=7&&j<4?(a?'#c9a06b':'#be9660'):i<6&&j>=8?(a?'#e8dcc0':'#dfd2b4'):i>=7&&j>=8?(a?'#d6e0cf':'#cbd6c3'):(a?'#c9ccf0':'#bcc0ea'))}
-poly([Q(0,0,90),Q(0,10,90),Q(0,10,0),Q(0,0,0)],'#e6e0d4');poly([Q(0,0,90),Q(12,0,90),Q(12,0,0),Q(0,0,0)],'#d4cebf');
-poly([Q(0,0,6),Q(0,10,6),Q(0,10,0),Q(0,0,0)],'#6e86c9');poly([Q(0,0,6),Q(12,0,6),Q(12,0,0),Q(0,0,0)],'#6e86c9');
-[[1,3],[4,6],[7.4,8.4],[10,11.5]].forEach(a=>poly([Q(a[0],0,40),Q(a[1],0,40),Q(a[1],0,72),Q(a[0],0,72)],'#a5d8ff'));[[1,3],[7,9]].forEach(a=>poly([Q(0,a[0],40),Q(0,a[1],40),Q(0,a[1],72),Q(0,a[0],72)],'#a5d8ff'));
-poly([Q(8.6,0,48),Q(9.8,0,48),Q(9.8,0,68),Q(8.6,0,68)],'#e0a030');
-items=[];SD.forEach(d=>desk(d,t));DD.forEach(d=>desk(d,t,'#cdb78f'));desk(CD,t,'#a9824f');
-B(7,0,.12,3.3,34,'#9fd3ff');B(7,3.9,.12,.12,34,'#9fd3ff');B(8,1.3,2.8,1.4,9,'#6b4a2f');B(11.8,1.2,.15,1.8,40,'#223344');B(11.2,.1,.6,.5,22,'#2f9e4f');
-SEATS.forEach(s=>B(s[0]-.2,s[1]-.2,.4,.4,6,'#2a2a2a'));
-B(.1,5,.5,1.2,56,'#9aa4b0');B(.3,8.4,.6,.6,24,'#7a4a2a');B(1.5,8.4,.7,.6,30,'#d44b6a');B(2.6,8.2,.3,1,14,'#c9a46a');B(3.3,8.3,1,.8,9,'#b98e5a');B(5,8.3,1,.8,9,'#b98e5a');
-B(7.2,4.5,.7,.7,16,'#dddddd');B(7.6,8.6,1.8,.8,9,'#5a7a6a');B(10.4,8.6,.1,1.4,26,'#a7d7a0');B(.2,.1,1.2,.6,46,'#7b6bd6');B(6,7.6,.5,.5,22,'#2f9e4f');B(11.3,4.4,.5,.5,22,'#2f9e4f');B(11,9.4,.8,.5,10,'#9ab');
-PP.forEach(p=>{if(!p.in&&p.kind!='board')return;add(p.x+p.y+.3,()=>{let g=p.act||(p.kind=='dir'||p.kind=='ceo'?p.tag:'');if(p.kind=='board')g='';
-if(p.kind=='staff'&&!p.sit&&g==''&&PP.some(o=>o!=p&&o.in&&!o.sit&&Math.hypot(o.x-p.x,o.y-p.y)<1.5))g='\u{1F4AC}';person(p.x,p.y,p.look,p.sit,t+p.di*1.7,g)})});
-items.sort((a,b)=>a[0]-b[0]).forEach(i=>i[1]());const h=hour();let a=h>=19.5||h<6?.4:h>=18||h<7?.18:0;if(S.dark>S.t)a+=.35;if(a){cx.fillStyle='rgba(15,20,70,'+Math.min(.7,a)+')';cx.fillRect(0,0,W,H)}}
-cv.onclick=ev=>{if(!S)return;const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;
-const p=PP.find(p=>(p.in||p.kind=='board')&&Math.hypot(P(p.x,p.y)[0]-mx,P(p.x,p.y)[1]-18*z-my)<28*z);if(p){const t=$('#tip');t.textContent=p.name+' \u2013 '+p.role;t.style.display='block';setTimeout(()=>t.style.display='none',1800)}};
+function obj(o,t){if(o[7]=='m')return box(o[0],o[1],o[2],o[3],o[4],Math.sin(t*2+o[0])>0?'#4a90d9':'#6fb1ec',o[6]);box(o[0],o[1],o[2],o[3],o[4],o[5],o[6]);
+if(o[7]=='r')for(let i=0;i<6;i++){const q=Q(o[0]+.2+(i%2)*.5,o[1]+o[3],8+(i>>1)*11);cx.fillStyle=Math.sin(t*3+i*1.7+o[0]*3)>0?'#4f4':'#f84';cx.fillRect(q[0],q[1],2.2*z+1,2.2*z+1)}}
+function person(p,t){let[px,py]=P(p.x,p.y);const k=z*2*p.sc,a=p.act,ph=t*8+p.idn;cx.fillStyle='#0003';cx.beginPath();cx.ellipse(px,py,6*k,2.4*k,0,0,7);cx.fill();
+if(a=='sleep'){if(p.room=='home')py-=8*z;cx.fillStyle='#fff';cx.fillRect(px-10*k,py-7*k,18*k,6*k);cx.fillStyle=p.look[2];cx.fillRect(px-4*k,py-9*k,12*k,3*k);cx.fillStyle=p.look[0];cx.fillRect(px-13*k,py-9*k,6*k,6*k);cx.fillStyle=p.look[1];cx.fillRect(px-13*k,py-10*k,6*k,2.5*k);
+cx.fillStyle='#5a6cff';cx.font=(10*z+4)+'px system-ui';cx.textAlign='center';cx.fillText(Math.sin(t*2)>0?'Z':'z',px-12*k,py-14*k);return}
+const sit=p.sit,w=a=='walk'||a=='clean'?Math.sin(ph)*k:0,lh=sit?5:9;cx.fillStyle='#2b3a67';cx.fillRect(px-3*k,py-lh*k,2*k,lh*k+Math.max(0,w));cx.fillRect(px+k,py-lh*k,2*k,lh*k-Math.min(0,w));
+const by=py-(sit?14:18)*k+(a=='talk'?Math.sin(ph*.6)*.6*k:0);let lA=0,rA=0,up=0;if(a=='work'||a=='game'){lA=Math.sin(ph*1.8)*1.5*k;rA=Math.sin(ph*1.8+2)*1.5*k}else if(a=='coffee'||a=='eat')up=Math.sin(ph*.5)>0?1:0;
+else if(a=='print')lA=rA=-2*k;else if(a=='cook'||a=='clean'||a=='shower'){lA=Math.sin(ph)*2*k;rA=-lA}else if(a=='talk')rA=Math.sin(ph*1.2)*2*k;else if(a=='walk'){lA=Math.sin(ph)*k;rA=-lA}
+cx.fillStyle=p.look[2];cx.fillRect(px-4*k,by,8*k,9*k);cx.fillRect(px-5.5*k,by+k+lA,1.5*k,6*k);cx.fillRect(px+4*k,up?by-4*k:by+k+rA,1.5*k,6*k);cx.fillStyle=p.look[0];cx.fillRect(px-3*k,by-6*k,6*k,6*k);cx.fillStyle=p.look[1];cx.fillRect(px-3*k,by-7*k,6*k,2.5*k);
+cx.textAlign='center';const pool=POOL[p.room]||POOL.office;if(a=='talk'&&((t/2.5|0)+p.idn)%2==0){const tx=pool[((t/5|0)+p.idn)%pool.length];cx.font=(8*z+4)+'px system-ui';const bw=cx.measureText(tx).width+8,yy=by-12*k;cx.fillStyle='#fff';cx.fillRect(px-bw/2,yy-12,bw,15);cx.strokeStyle='#555';cx.strokeRect(px-bw/2,yy-12,bw,15);cx.fillStyle='#222';cx.fillText(tx,px,yy)}
+else{const tg=(p.kind=='dir'||p.kind=='ceo')&&a=='work'?p.tag:ICON[a]||'';if(tg){cx.fillStyle='#222';cx.font='bold '+(8*z+4)+'px system-ui';cx.fillText(tg,px,by-9*k)}}}
+function draw(t){const W=cv.clientWidth,H=cv.clientHeight,dp=devicePixelRatio||1;if(cv.width!=W*dp||cv.height!=H*dp){cv.width=W*dp;cv.height=H*dp}cx.setTransform(dp,0,0,dp,0,0);cx.clearRect(0,0,W,H);if(!S)return;
+const L=lay(view);z=Math.min(W/((L.w+L.h)*32+30),H/((L.w+L.h)*16+100));ox=W/2-(L.w-L.h)*16*z;oy=(H-((L.w+L.h)*16+90)*z)/2+90*z;
+for(let i=0;i<L.w;i++)for(let j=0;j<L.h;j++)poly([P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],L.fl[(i+j)%2]);
+poly([Q(0,0,90),Q(0,L.h,90),Q(0,L.h,0),Q(0,0,0)],L.wall);poly([Q(0,0,90),Q(L.w,0,90),Q(L.w,0,0),Q(0,0,0)],sh(L.wall,.92));
+if(L.win){for(let x=1;x+2<L.w;x+=3.5)poly([Q(x,0,40),Q(x+2,0,40),Q(x+2,0,72),Q(x,0,72)],'#a5d8ff');for(let y=1;y+2<L.h;y+=3.5)poly([Q(0,y,40),Q(0,y+2,40),Q(0,y+2,72),Q(0,y,72)],'#a5d8ff')}
+items=[];L.O.forEach(o=>items.push([o[0]+o[2]/2+o[1]+o[3]/2,()=>obj(o,t)]));PP.forEach(p=>{if((p.in||p.kind=='board')&&p.room==view)items.push([p.x+p.y+.3,()=>person(p,t)])});
+items.sort((a,b)=>a[0]-b[0]).forEach(i=>i[1]());const h=hour();let a=view=='home'||h>=19.5||h<6?(h>=19.5||h<6?.4:0):h>=18||h<7?.18:0;if(S.dark>S.t)a+=.35;if(a){cx.fillStyle='rgba(15,20,70,'+Math.min(.7,a)+')';cx.fillRect(0,0,W,H)}}
+cv.onclick=ev=>{if(!S)return;const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top,p=PP.find(p=>(p.in||p.kind=='board')&&p.room==view&&Math.hypot(P(p.x,p.y)[0]-mx,P(p.x,p.y)[1]-18*z-my)<28*z);if(p)tip(p.name+' \u2013 '+(p.role||p.kind)+(p.act?' ('+p.act+')':''))};
 /* ---- UI ---- */
-const bar=(l,v,c)=>`<span class=b>${l}<i style="--w:${cl(v)}%;--c:${c}"></i></span>`,btn=(a,v,l,c='')=>`<button class="a ${c}" data-a=${a} data-v="${v}">${l}</button>`;
-function ui(){if(!S)return;const h=hour(),hh=h|0,mm=(h%1)*60|0;$('#top').innerHTML=`<b>Day ${day()} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}</b><button data-a=pause class="${paused?'on':''}">${paused?'\u25B6':'\u23F8'}</button>${[1,2,3].map(s=>`<button data-a=spd data-v=${s} class="${spd==s&&!paused?'on':''}">${s}x</button>`).join('')}
-<span>\uD83D\uDCB0 ${$f(S.cash)} \u00B7 Value ${$f(val())} \u00B7 Rep ${S.rep|0}</span>${bar('Happy',S.hap,'#3c6')}${bar('Prod',prodF()*100/1.3,'#4ac')}`}
-const nextMt=()=>{const q=S.queue.find(q=>q.kind=='b');return q?'<br>Board meeting pending: '+esc(q.t):''};
+const bar=(l,v,c)=>`<span class=b>${l}<i style="--w:${cl(v)}%;--c:${c}"></i></span>`,btn=(a,v,l,c='')=>`<button class="a ${c}" data-a=${a} data-v="${v}">${l}</button>`,pg=(v,m,c)=>`<div class=pg><i style="width:${cl(v/m*100)}%;background:${c}"></i></div>`;
+function ui(){if(!S)return;const h=hour();$('#top').innerHTML=`<b>Day ${day()} ${String(h|0).padStart(2,'0')}:${String((h%1)*60|0).padStart(2,'0')}</b><button data-a=pause class="${paused?'on':''}">${paused?'\u25B6':'\u23F8'}</button>${[1,2,4].map(s=>`<button data-a=spd data-v=${s} class="${spd==s&&!paused?'on':''}">${s}x</button>`).join('')}
+<span>\uD83D\uDCB0 ${$f(S.cash)} \u00B7 Value ${$f(val())} \u00B7 Rep ${S.rep|0}${away()?' \u00B7 \uD83C\uDF34 On leave':''}</span>${bar('Happy',S.hap,'#3c6')}${bar('Prod',prodF()*77,'#4ac')}`}
+const evAt=d=>[...S.events.filter(e=>e.day==d).map(e=>({party:'\uD83C\uDF89',meet:'\uD83D\uDCCB',trip:'\u2708\uFE0F'}[e.type]||'')+esc(e.title)),...S.projs.filter(p=>!p.done&&p.due==d).map(p=>'\uD83D\uDCE6'+esc(p.name)),...S.leaves.filter(l=>l.st=='ok'&&l.from==d).map(l=>'\uD83C\uDF34'+esc(l.name)+' '+l.days+'d'),...(d%90==0?['\uD83C\uDF82Anniversary']:[]),...S.queue.filter(q=>q.kind=='b'&&q.avail==d).map(q=>'\uD83C\uDFDB Board')];
 const V={
-dash:()=>{const r=S.rpt;return`<p class=hint>You are the President. Managers run daily work; only major decisions reach you.</p><h4>Morning Report \u2013 Day ${r.d}</h4><div class=card>Revenue ${$f(r.rev)}/day \u00B7 Expenses ${$f(r.exp)}/day<br>Cash flow <b>${$f(r.flow)}</b>/day<br>Happiness ${r.hap|0} \u00B7 Productivity ${r.prod|0}%<br>Pending decisions ${S.queue.length}${nextMt()}<br>Risks: ${r.risks}</div>
-<h4>Organization</h4><div class=card>President (you) \u2192 Board (6) \u2192 CEO ${esc(S.ceo.name)} \u2192 8 Directors \u2192 ${Math.ceil((S.staff.length+S.remote)/5)} Supervisors \u2192 ${S.staff.length+S.remote} staff (${S.remote} at branches)</div>`},
-inbox:()=>(S.queue.map(q=>{if(q.kind=='b')return`<div class=card><b>${esc(q.t)}</b><br><small>Proposed by ${q.from}. CEO: "This matter requires Board approval."</small><br>${q.avail>day()?'<small>Rescheduled to day '+q.avail+'</small>':btn('enter',q.id,'Enter Board Room','g')}</div>`;
-const cf=S.dirs[2],dis=q.cost>S.cash*.05?`<br><small>${esc(cf.name)} (CFO) dissents: "${cf.sty=='bold'?'Acceptable, but watch the budget.':'I would hold until cash is healthier.'}"</small>`:'';
-return`<div class=card><b>${esc(q.t)}</b><br><small>${q.from} \u00B7 Cost ${$f(q.cost)} \u00B7 CEO: "I recommend approval."</small>${dis}<br>${btn('rok',q.id,'Approve','g')}${btn('rno',q.id,'Reject','r')}</div>`}).join('')||'<p>No pending decisions.</p>')+'<h4>Company messages</h4>'+S.log.map(m=>`<div class=msg>${esc(m)}</div>`).join(''),
-exec:()=>[S.ceo,...S.dirs].map((e,i)=>`<div class=card><b>${esc(e.name)}</b> \u00B7 ${e.role}<br><small>Style ${e.sty} \u00B7 Risk tolerance ${e.risk} \u00B7 Strength: ${e.str} \u00B7 Weakness: ${e.weak}</small><br>${btn('brief',i,'Ask for report')}${e.say?`<div class=msg>"${esc(e.say)}"</div>`:''}</div>`).join(''),
-board:()=>{const m=S.mt;if(!m)return'<h3>Board of Directors</h3>'+S.board.map(b=>`<div class=card><b>${esc(b.name)}</b> \u00B7 ${b.title}<br><small>Style ${b.sty} \u00B7 Risk ${b.risk}</small></div>`).join('');
-const d=m.d;if(m.ph=='enter')return`<h3>Board Room</h3><p>Board members are walking in\u2026</p>`;const o=opin(d),f=o.filter(x=>x.v>0).length,ag=o.filter(x=>x.v<0).length;
-return`<h3>${esc(d.t)}</h3><div class=card><b>CEO ${esc(S.ceo.name)} presents</b><br>Situation: ${d.sit}<br>Cost: ${d.cost<0?'Brings in '+$f(-d.cost):$f(d.cost)}<br>Benefits: ${d.rev?'+'+$f(d.rev)+'/mo revenue. ':''}${d.hire?'+'+d.hire+' staff. ':''}${d.asset?'+'+$f(d.asset)+' assets. ':''}${d.prod?'+productivity. ':''}Growth ${d.gr*100|0}%<br>Risks: ${d.risk*100|0}%${d.legal?', regulatory issues':''}${d.intr?', interest '+$f(d.intr)+'/mo':''}<br>Alternatives: ${d.alt}${m.info?`<br><b>More info:</b> success chance ${100-(d.risk*45|0)}%, payback ${d.rev?Math.ceil(d.cost/d.rev)+' months':'n/a'}.`:''}</div>
-${o.map(x=>`<div class=msg><b>${esc(x.m.name)}</b> (${x.m.title}): "${x.t}"</div>`).join('')}<p><small>Board leaning: ${f} for, ${ag} against.</small></p>${btn('bd','y','Approve','g')}${btn('bd','n','Reject','r')}${btn('bd','d','Delay')}${m.info?'':btn('bd','i','More information')}${btn('bd','r','Send back for revision')}`},
-fin:()=>{const r=S.rpt,hc=S.staff.length+S.remote;return`<h3>Finance</h3><div class=card>Cash <b>${$f(S.cash)}</b> \u00B7 Valuation <b>${$f(val())}</b><br>Monthly revenue ~${$f(r.rev*30)} \u00B7 expenses ~${$f(r.exp*30)}<br>Headcount ${hc+9} \u00B7 Loans ${$f(S.debt)} \u00B7 Assets ${$f(S.assets)}<br><small>Payroll, rent and interest are paid daily by Finance.</small></div>`},
-set:()=>`<h3>${esc(S.name)}, President of ${esc(S.co)}</h3>${btn('save','','Save now','g')}${btn('export','','Export JSON')}${btn('newg','','New game','r')}<p><small>Autosaves every day.</small></p>`};
-const TABS=[['dash','Report'],['inbox','Inbox'],['board','Board'],['exec','Executives'],['fin','Finance'],['set','Settings']];
-function R(){if(!S)return;$('#tabs').innerHTML=TABS.map(([k,l])=>`<button class="${k==tab?'on':''}" data-a=tab data-v=${k}>${l}${k=='inbox'&&S.queue.length?' ('+S.queue.length+')':''}</button>`).join('');$('#panel').innerHTML=V[tab]()}
-function endMt(){S.mt=null;PP.forEach(p=>{if(p.kind=='board'){p.out=1;go(p,LOBBY)}});R();ui()}
-const A={tab:v=>{tab=v;R()},pause:()=>{paused=!paused;ui()},spd:v=>{spd=+v;paused=false;ui()},
-brief(v){const e=[S.ceo,...S.dirs][v];e.say=SAY[e.sty]+' (Company happiness '+(S.hap|0)+', cash '+$f(S.cash)+')';R()},
-rok(v){const q=S.queue.find(x=>x.id==v);if(S.cash<q.cost)return alert('Not enough company cash.');applyR(q);S.queue=S.queue.filter(x=>x!=q);say('You approved: '+q.t);R();ui()},
-rno(v){S.queue=S.queue.filter(x=>x.id!=v);say('You rejected a proposal.');R()},
-enter(v){if(S.mt)return;const d=S.queue.find(q=>q.id==v);S.mt={d,ph:'enter',info:false};S.board.forEach((b,i)=>{const p=mkP('board',{name:b.name,role:b.title,look:b.look},i);p.in=true;p.x=LOBBY[0]+i*.3;p.y=LOBBY[1]+.4;go(p,SEATS[i],1);PP.push(p)});tab='board';R()},
-bd(v){const m=S.mt,d=m.d;if(v=='i'){m.info=true;return R()}
-if(v=='y'){if(S.cash<d.cost)return alert('Insufficient cash. Consider approving a loan first.');applyB(d);S.queue=S.queue.filter(q=>q!=d)}
-if(v=='n'){S.queue=S.queue.filter(q=>q!=d);say('Board rejected: '+d.t)}
-if(v=='d'){d.avail=day()+3;say('Decision delayed: '+d.t)}
-if(v=='r'){d.cost=Math.round(d.cost*.85);d.risk*=.8;d.avail=day()+5;say('Sent back for revision: '+d.t)}endMt()},
+dash:()=>{const r=S.rpt;return`<p class=hint>You are the President. Managers run the company and report to you automatically.</p><div class=card><b>Latest report (Day ${r.d})</b><br>Revenue ${$f(r.rev)}/day \u00B7 Expenses ${$f(r.exp)}/day \u00B7 Flow <b>${$f(r.flow)}</b><br>Happiness ${r.hap|0} \u00B7 Productivity ${r.prod|0}% \u00B7 Debt ${$f(S.debt)}<br>Risks: ${r.risks}</div>
+<div class=card>President \u2192 Board (6) \u2192 CEO ${esc(S.ceo.name)} \u2192 8 Directors \u2192 ${Math.ceil(S.staff.length/5)} Supervisors \u2192 ${S.staff.length} staff</div><h4>Report history</h4>${S.reports.map(x=>`<div class=msg>${x}</div>`).join('')}`},
+inbox:()=>S.leaves.filter(l=>l.st=='pending').map(l=>`<div class=card><b>${esc(l.name)}</b> requests leave: ${l.why}<br><small>Day ${l.from} for ${l.days} day(s)</small><br>${btn('lok',l.id,'Approve','g')}${btn('lno',l.id,'Reject','r')}</div>`).join('')+
+S.recs.map(r=>`<div class=card><b>HR recommends: ${esc(r.name)}</b> \u00B7 ${DEPT[r.dept][0]}<br><small>Skill ${r.skill} \u00B7 asks ${$f(r.sal)}/mo<br>${r.why}</small><br>${btn('hire',r.id,'Approve hire','g')}</div>`).join('')+
+S.queue.map(q=>{if(q.kind=='b')return`<div class=card><b>${esc(q.t)}</b><br><small>${q.from}. CEO: "This matter requires Board approval."</small><br>${q.avail>day()?'<small>Rescheduled to day '+q.avail+'</small>':btn('enter',q.id,'Enter Board Room','g')}</div>`;
+return`<div class=card><b>${esc(q.t)}</b><br><small>${q.from} \u00B7 Cost ${$f(q.cost)} \u00B7 CEO: "I recommend approval."</small><br>${btn('rok',q.id,'Approve','g')}${btn('rno',q.id,'Reject','r')}</div>`}).join('')+'<h4>Messages</h4>'+S.log.map(m=>`<div class=msg>${esc(m)}</div>`).join(''),
+proj:()=>{const col={Done:'#2e9e5b','On track':'#3b6fd4','At risk':'#e0a030',Late:'#c0392b'},L=[...S.projs].sort((a,b)=>a.done-b.done||a.due-b.due);return`<h3>All projects (${L.filter(p=>!p.done).length} active)</h3>`+L.map(p=>{const s=pstat(p);return`<div class=card><b>${esc(p.name)}</b> <small style="color:${col[s]}">${s}</small><br><small>${DEPT[p.dept][0]} (${esc(S.dirs[p.dept].name)}) \u00B7 ${workers(p)} people \u00B7 due day ${p.due} \u00B7 ${$f(p.reward)}</small>${pg(p.prog,p.size,col[s])}</div>`}).join('')},
+cal:()=>{const m=calM;let c='';for(let d=m*30+1;d<=m*30+30;d++)c+=`<div style="${d==day()?'border:2px solid #3b6fd4':''}"><b>${d}</b><br>${evAt(d).join('<br>')}</div>`;const ppl=[['me','Me (President)'],...[...S.dirs,...S.staff].map(e=>[e.uid,e.name])];
+return`<h3>Calendar \u2013 days ${m*30+1}\u2013${m*30+30}</h3>${btn('cm',-1,'\u25C0')}${btn('cm',1,'\u25B6')}<div class=cg>${c}</div><div class=card><b>Add event</b><input id=et placeholder="Title"><input id=ed type=number placeholder="Day" value=${day()+1}><select id=ey><option value=party>Party / team-building</option><option value=meet>Meeting</option><option value=trip>Trip</option></select>${btn('addev','','Add event','g')}</div>
+<div class=card><b>Grant leave</b> (you approve it)<select id=lw>${ppl.map(p=>`<option value=${p[0]}>${esc(p[1])}</option>`).join('')}</select><input id=lf type=number value=${day()+1}><input id=ld type=number value=3 placeholder="How many days"> ${btn('grant','','Grant leave','g')}</div>`},
+ppl:()=>'<h4>Relationships</h4>'+(S.rels.map(r=>`<div class=msg>${esc(r.an)} & ${esc(r.bn)}: ${r.t}${r.kids?', '+r.kids+' child(ren)':''}</div>`).join('')||'<small>None yet.</small>')+'<h4>Leadership</h4>'+[S.ceo,...S.dirs].map((e,i)=>`<div class=card><b>${esc(e.name)}</b> \u00B7 ${e.role}<br><small>${e.sty} \u00B7 risk ${e.risk} \u00B7 +${e.str} \u00B7 weak: ${e.weak}</small><br>${btn('brief',i,'Ask for report')}${e.say?`<div class=msg>"${esc(e.say)}"</div>`:''}</div>`).join(''),
+board:()=>{const m=S.mt;if(!m)return'<h3>Board of Directors</h3>'+S.board.map(b=>`<div class=card><b>${esc(b.name)}</b> \u00B7 ${b.title}</div>`).join('');const d=m.d;if(m.ph=='enter')return'<h3>Board Room</h3><p>Board members are walking in\u2026</p>';
+const o=opin(d),f=o.filter(x=>x.v>0).length,ag=o.filter(x=>x.v<0).length;return`<h3>${esc(d.t)}</h3><div class=card><b>CEO presents</b><br>Situation: ${d.sit}<br>Cost: ${d.cost<0?'Brings in '+$f(-d.cost):$f(d.cost)}<br>Benefits: ${d.rev?'+'+$f(d.rev)+'/mo. ':''}${d.hire?'+'+d.hire+' staff. ':''}${d.asset?'+'+$f(d.asset)+' assets. ':''}Growth ${d.gr*100|0}%<br>Risks: ${d.risk*100|0}%${d.legal?', regulatory':''}<br>Alternatives: ${d.alt}${m.info?`<br><b>More info:</b> success ${100-(d.risk*45|0)}%, payback ${d.rev?Math.ceil(d.cost/d.rev)+' mo':'n/a'}.`:''}</div>
+${o.map(x=>`<div class=msg><b>${esc(x.m.name)}</b> (${x.m.title}): "${x.t}"</div>`).join('')}<p><small>${f} for, ${ag} against.</small></p>${btn('bd','y','Approve','g')}${btn('bd','n','Reject','r')}${btn('bd','d','Delay')}${m.info?'':btn('bd','i','More info')}${btn('bd','r','Send back')}`},
+home:()=>{const f=S.fam;return`<h3>My Home</h3><div class=card>Partner: <b>${esc(f.partner.name)}</b><br>Children: ${f.kids.length?f.kids.map(k=>esc(k.name)).join(', '):'none yet'}${f.pending?'<br>Baby expected on day '+f.pending:''}<br>Family bond ${f.bond|0}${pg(f.bond,100,'#d44b6a')}</div>${btn('fam','time','Family time')}${btn('fam','date','Date night')}${btn('fam','baby','Plan for a baby','g')}${away()?'<p class=hint>You are on leave. The CEO covers routine decisions.</p>':''}`},
+set:()=>`<h3>${esc(S.name)}, President of ${esc(S.co)}</h3>${btn('save','','Save now','g')}${btn('export','','Export JSON')}${btn('newg','','New game','r')}<p><small>Autosaves daily. Each in-game day lasts about 5 real minutes at 1x.</small></p>`};
+const TABS=[['dash','Report'],['inbox','Inbox'],['proj','Projects'],['cal','Calendar'],['ppl','People'],['board','Board'],['home','Home'],['set','Settings']];
+function R(){if(!S)return;$('#tabs').innerHTML=TABS.map(([k,l])=>{const n=k=='inbox'?S.queue.length+S.recs.length+S.leaves.filter(l=>l.st=='pending').length:0;return`<button class="${k==tab?'on':''}" data-a=tab data-v=${k}>${l}${n?' ('+n+')':''}</button>`}).join('');
+$('#rooms').innerHTML=RM.map(r=>`<button data-a=room data-v=${r[0]} class="${r[0]==view?'on':''}">${r[1]}</button>`).join('');$('#panel').innerHTML=V[tab]()}
+function endMt(){S.mt=null;PP.forEach(p=>{if(p.kind=='board'){p.out=1;p.g=G('board',lay('board').door,'walk')}});R();ui()}
+const val_=id=>+$(id).value;
+const A={tab:v=>{tab=v;R()},room:v=>{view=v;R()},pause:()=>{paused=!paused;ui()},spd:v=>{spd=+v;paused=false;ui()},cm:v=>{calM=Math.max(0,calM+ +v);R()},
+brief(v){const e=[S.ceo,...S.dirs][v];e.say=SAY[e.sty]+' (happiness '+(S.hap|0)+', cash '+$f(S.cash)+')';R()},
+rok(v){const q=S.queue.find(x=>x.id==v);if(S.cash<q.cost)return alert('Not enough company cash.');applyR(q);S.queue=S.queue.filter(x=>x!=q);say('You approved: '+q.t);R();ui()},rno(v){S.queue=S.queue.filter(x=>x.id!=v);R()},
+lok(v){S.leaves.find(l=>l.id==v).st='ok';say('Leave approved.');R()},lno(v){S.leaves=S.leaves.filter(l=>l.id!=v);R()},
+hire(v){const r=S.recs.find(x=>x.id==v);hireN(1,r.dept);S.staff[S.staff.length-1].name=r.name;PP[PP.length-1]&&0;sync();S.recs=[];say('Hired '+r.name+' for '+DEPT[r.dept][0]+'.');R()},
+addev(){const t=$('#et').value;if(!t)return alert('Enter a title.');S.events.push({day:val_('#ed'),title:t,type:$('#ey').value});R()},
+grant(){const u=$('#lw').value,e=[...S.dirs,...S.staff].find(x=>x.uid==u);S.leaves.push({id:++S.nid,uid:u,name:u=='me'?'You':e.name,from:val_('#lf'),days:Math.max(1,val_('#ld')),st:'ok',why:'Granted'});say('Leave granted.');R();ui()},
+fam(v){const f=S.fam;if(v=='time'){f.bond=cl(f.bond+4);S.hap=cl(S.hap+2)}if(v=='date'){f.bond=cl(f.bond+6);S.hap=cl(S.hap+2)}if(v=='baby'){if(f.pending||f.kids.length>=5)return alert('Not possible right now.');f.pending=day()+6;say('You and '+f.partner.name+' are expecting a baby.')}R();ui()},
+enter(v){if(S.mt)return;const d=S.queue.find(q=>q.id==v);S.mt={d,ph:'enter',info:false};const B=lay('board');S.board.forEach((b,i)=>{const p=mkP('board',b,i);p.in=1;p.room='board';[p.x,p.y]=B.door;p.g=G('board',B.seat[i],'talk',1);PP.push(p)});tab='board';view='board';R()},
+bd(v){const m=S.mt,d=m.d;if(v=='i'){m.info=true;return R()}if(v=='y'){if(S.cash<d.cost)return alert('Insufficient cash. Consider a loan first.');applyB(d);S.queue=S.queue.filter(q=>q!=d)}
+if(v=='n'){S.queue=S.queue.filter(q=>q!=d);say('Board rejected: '+d.t)}if(v=='d'){d.avail=day()+3;say('Decision delayed.')}if(v=='r'){d.cost=Math.round(d.cost*.85);d.risk*=.8;d.avail=day()+5;say('Sent back for revision.')}endMt()},
 save(){save();alert('Saved.')},export(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='tycoon-save.json';a.click()},
-newg(){if(confirm('Delete your save and start over?')){localStorage.removeItem(KEY);creator()}},
-start(){mk({name:$('#cn').value||'Alex',co:$('#cc').value||'Bright Corp'});$('#modal').style.display='none';R();ui()}};
+newg(){if(confirm('Delete your save and start over?')){localStorage.removeItem(KEY);creator()}},start(){mk({name:$('#cn').value||'Alex',co:$('#cc').value||'Bright Corp'});$('#modal').style.display='none';R();ui()}};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a])A[b.dataset.a](b.dataset.v)});
 function save(){try{const m=S.mt;S.mt=null;localStorage.setItem(KEY,JSON.stringify(S));S.mt=m}catch(e){}}
-function creator(){$('#modal').style.display='flex';$('#modal').innerHTML=`<div class=mbox><h2>Office & Life Tycoon</h2><p>You are the President and owner. Your board, CEO and directors run the company.</p><input id=cn placeholder="Your name"><input id=cc placeholder="Company name">${btn('start','','Take office','g')}</div>`}
-function loop(ts){const dt=Math.min(.1,(ts-last)/1000);last=ts;if(S){if(!paused){acc+=dt*spd;while(acc>=.5){acc-=.5;tick();ui()}move(dt)}}draw(ts/1000);requestAnimationFrame(loop)}
+function creator(){$('#modal').style.display='flex';$('#modal').innerHTML=`<div class=mbox><h2>Office & Life Tycoon</h2><p>You are the President and owner. You also have a home and a family.</p><input id=cn placeholder="Your name"><input id=cc placeholder="Company name">${btn('start','','Take office','g')}</div>`}
+function loop(ts){const dt=Math.min(.1,(ts-last)/1000);last=ts;if(S){if(!paused){acc+=dt*spd;while(acc>=2){acc-=2;tick();ui()}move(dt)}}draw(ts/1000);requestAnimationFrame(loop)}
 try{const d=localStorage.getItem(KEY);if(d){S=JSON.parse(d);S.mt=null;sync();R();ui()}else creator()}catch(e){creator()}
 requestAnimationFrame(loop);
 </script></body></html>
