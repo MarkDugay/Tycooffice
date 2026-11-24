@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Office & Life Tycoon</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:#1d2033;color:#222;height:100vh;display:flex;flex-direction:column}
+#top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;background:#2b3050;color:#fff}
+#top button{background:#4a5390;color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}#top button.on{background:#f0a030;color:#000}
+.b{display:inline-flex;align-items:center;gap:4px;font-size:11px}.b i{display:inline-block;height:8px;width:44px;background:#0004;border-radius:4px;position:relative;overflow:hidden}
+.b i:after{content:"";position:absolute;inset:0;width:var(--w);background:var(--c)}
+main{flex:1;display:flex;min-height:0}#cv{flex:1;min-width:0;height:100%;background:#8f93c9;cursor:pointer}
+aside{width:380px;background:#f6f3ec;display:flex;flex-direction:column;min-height:0}
+#tabs{display:flex;flex-wrap:wrap;gap:3px;padding:6px;background:#e4dfd2}#tabs button{border:0;border-radius:5px;padding:6px 8px;background:#fff;cursor:pointer}#tabs button.on{background:#3b6fd4;color:#fff}
+#panel{padding:10px;overflow:auto;flex:1}
+.card{background:#fff;border:1px solid #d8d2c4;border-radius:8px;padding:8px;margin:6px 0}
+button.a{background:#3b6fd4;color:#fff;border:0;border-radius:6px;padding:6px 9px;margin:2px;cursor:pointer}button.a.r{background:#c0392b}button.a.g{background:#2e9e5b}
+input,select,textarea{width:100%;padding:6px;margin:2px 0 6px;border:1px solid #bbb;border-radius:5px;font:inherit}
+.hint{background:#fff3c4;padding:8px;border-radius:6px}h3,h4{margin:6px 0}.pg{height:6px;background:#ddd;border-radius:3px}.pg i{display:block;height:6px;background:#2e9e5b;border-radius:3px}
+.msg{font-size:12px;border-bottom:1px solid #ddd;padding:3px 0}
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:9}.mbox{background:#fff;padding:18px;border-radius:12px;width:min(420px,92vw)}
+@media(max-width:800px){main{flex-direction:column}#cv{flex:none;height:42vh}aside{width:100%;flex:1}}
+</style></head><body>
+<div id="top"></div>
+<main><canvas id="cv"></canvas><aside><div id="tabs"></div><div id="panel"></div></aside></main>
+<div id="modal"></div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s),KEY='oltycoon1',cv=$('#cv'),cx=cv.getContext('2d');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rnd=a=>a[Math.random()*a.length|0],cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v)),$f=n=>'$'+Math.round(n).toLocaleString();
+const NAMES=['Ava','Ben','Cara','Dev','Elle','Finn','Gia','Hugo','Iris','Jon','Kai','Lena','Omar','Pia','Ravi','Sofia'],ROLES=['Developer','Designer','Marketing','Sales','Support','Finance'],PERS=['ambitious','shy','analytical'];
+const SKIN=['#f1c27d','#8d5524','#e0ac69','#c68642'],HAIR=['#222222','#6b4423','#d9a441','#aa3333'],SHIRT=['#3b6fd4','#d44b6a','#3aa76d','#e08a2e','#7a5bd0'];
+const DESKS=[[2,2],[4,2],[6,2],[2,5],[4,5],[6,5]],AWAY=[[1.6,6.8],[3.4,7.4],[7.4,6.2],[7.2,8],[3.2,8.9],[6.8,8.8]];
+const TABS=[['dash','Dashboard'],['team','Team'],['tasks','Tasks'],['inbox','Inbox'],['hr','HR'],['fin','Finance'],['life','Life'],['set','Settings']];
+const L={ambitious:{update:'On it. I want this delivered early.',problem:'Honestly, I need a bigger challenge, and better tools would help.',praise:"Thanks! That fuels me. What's the next big thing?",fb:"Understood. I'll aim higher next time."},
+shy:{update:'Um... progress is steady. I hope that is okay.',problem:"I didn't want to bother you, but priorities feel unclear sometimes.",praise:'Oh! Thank you, that means a lot.',fb:"Okay... I'll try to speak up earlier."},
+analytical:{update:'By my estimate, the work is on schedule.',problem:'Requirements are ambiguous. Clarify scope and I can optimise.',praise:'Noted. The data supports that conclusion.',fb:'Reasonable. Show me the metrics and I will adjust.'}};
+const INT={ambitious:'I want to lead projects within two years.',shy:'I do my best work quietly, with clear instructions.',analytical:'I would like to see the metrics before committing.'};
+let S,spd=1,paused=false,tab='dash',sel=null,chats={},acc=0,last=0,tc=0,z=1,ox=0,oy=0,items=[];
+const day=()=>(S.t/1440|0)+1,hour=()=>(S.t%1440)/60;
+const mood=()=>{const n=S.needs;return cl((n.energy+n.hunger+n.hygiene+100-n.stress)/4+S.home.plant*4+S.home.bed*2)|0};
+function mkEmp(role,sal){const sk=40+Math.random()*40|0;return{id:0,name:rnd(NAMES),role,pers:rnd(PERS),skill:sk,morale:70,energy:100,salary:sal||1800+sk*20+(Math.random()*400|0),look:[rnd(SKIN),rnd(HAIR),rnd(SHIRT)],x:5,y:9.8,tx:5,ty:9.8,wait:0,mode:'desk',sit:false,desk:0,int:false,trait:rnd(['Great communicator','Fast but careless','Meticulous, slower','Wants growth fast','Loyal team player'])}}
+function seat(e){const u=new Set(S.emps.map(x=>x.desk));e.desk=[0,1,2,3,4,5].find(i=>!u.has(i));e.id=++S.nid;e.tx=DESKS[e.desk][0]+.5;e.ty=DESKS[e.desk][1]+1.1;e.mode='desk';S.emps.push(e)}
+function newState(o){S={v:1,t:8*60,nid:0,name:o.name,trait:o.trait,shirt:o.shirt,co:o.co,cash:o.cash,pcash:o.pcash,rep:10,draw:1500,limit:0,needs:{energy:90,hunger:80,hygiene:80,stress:20},
+skills:{leadership:1,finance:1,tech:1,cooking:1,fitness:1,creativity:1},home:{bed:0,plant:0,setup:0},rel:{Sam:{k:'Friend',v:30},Mom:{k:'Family',v:50},Lee:{k:'Neighbor',v:10}},
+emps:[],tasks:[],appr:[],cands:[],log:['Welcome! Open Tasks and give Mia her first assignment.'],fin:{rev:0,exp:0},first:{}};
+const e=mkEmp('Developer',2200);e.name='Mia';e.pers='ambitious';e.skill=60;seat(e)}
+function say(m){S.log.unshift('Day '+day()+': '+m);S.log.length=Math.min(S.log.length,40)}
+/* ---- simulation ---- */
+function tick(){const o=S.t;S.t+=10;const h=hour(),n=S.needs,wk=h>=9&&h<17;
+n.energy-=.3;n.hunger-=.4;n.hygiene-=.2;n.stress+=S.tasks.some(t=>!t.done&&day()>t.due)?.4:.03;n.stress-=.04*S.home.plant;
+for(const k in n)n[k]=cl(n[k]);const pr=.5+.5*mood()/100;
+S.emps.forEach(e=>{e.energy=wk?Math.max(0,e.energy-.3):Math.min(100,e.energy+1);
+const t=S.tasks.find(t=>t.emp==e.id&&!t.done);
+if(t&&wk){t.p+=e.skill/100*pr*(.6+.4*e.morale/100)*(e.energy>25?1:.6)*(Math.random()<.04?0:1)*1.6;if(t.p>=t.work)finish(t,e)}});
+if((o/1440|0)!=(S.t/1440|0))newDay()}
+function adv(min){for(let i=0;i<min/10;i++)tick();ui();R()}
+function finish(t,e){t.done=true;t.p=t.work;const late=day()>t.due,r=late?t.reward*.7|0:t.reward;S.cash+=r;S.fin.rev+=r;S.rep+=late?0:2;e.morale=cl(e.morale+(late?-2:4));
+say(e.name+' completed "'+t.title+'"'+(late?' (late)':'')+' +'+$f(r));S.first.proj=1}
+function newDay(){const d=day();say('Daily summary: company '+$f(S.cash)+', personal '+$f(S.pcash)+', mood '+mood());
+if((d-1)%30==0){const pay=S.emps.reduce((a,e)=>a+e.salary,0)+800;S.cash-=pay;S.fin.exp+=pay;
+if(S.cash>=S.draw){S.cash-=S.draw;S.pcash+=S.draw;S.fin.exp+=S.draw}S.pcash-=300+(S.home.bed+S.home.setup)*20;if(S.pcash<0)S.needs.stress=cl(S.needs.stress+10);
+say('Month end: payroll+rent '+$f(pay)+', your owner draw '+$f(S.draw));S.fin={rev:0,exp:0}}
+S.emps.forEach(e=>{e.morale=cl(e.morale+(S.needs.stress>70?-2:1)+(mood()>70?1:0))});
+if(S.emps.length&&S.appr.length<4&&Math.random()<.6)genReq();save()}
+function genReq(kind){const e=rnd(S.emps),k=kind||rnd(['train','gear','raise','contract']);
+const R={train:{cost:400,t:"I'd like to attend a course to sharpen my skills.",risk:'Low, some training time',ben:'+5 skill, +morale'},gear:{cost:800,t:'My workstation is slow. A new setup would speed me up.',risk:'Low',ben:'+3 skill, +morale'},
+raise:{cost:Math.round(e.salary*.1),t:'I believe my results justify a raise.',risk:'Payroll rises; refusal hurts morale',ben:'+10 morale, stays motivated'},
+contract:{cost:0,t:'A client offered a large contract!',risk:'10-day deadline; late delivery pays 30% less',ben:'$3,500 reward, +5 reputation'}}[k];
+const a={id:++S.nid,emp:e.id,k,...R};if(a.cost>0&&k!='raise'&&a.cost<=S.limit){S.appr.push(a);resolve(a.id,'y',true);return}S.appr.push(a);say(e.name+' sent a request: '+R.t)}
+function resolve(id,m,auto){const a=S.appr.find(x=>x.id==id),e=S.emps.find(x=>x.id==a.emp);S.appr=S.appr.filter(x=>x!=a);const f=m=='c'?.5:1,cost=Math.round(a.cost*(m=='c'?.6:1));
+if(m=='n'){e.morale=cl(e.morale-(a.k=='raise'?8:3));say('Rejected '+e.name+"'s request.");return}
+if(S.cash<cost){say('Not enough company cash for that request.');S.appr.push(a);return}
+S.cash-=a.k=='raise'?0:cost;S.fin.exp+=a.k=='raise'?0:cost;
+if(a.k=='train'){e.skill=cl(e.skill+5*f);e.morale=cl(e.morale+5*f)}
+if(a.k=='gear'){e.skill=cl(e.skill+3*f);e.morale=cl(e.morale+4*f)}
+if(a.k=='raise'){e.salary+=cost;e.morale=cl(e.morale+10*f)}
+if(a.k=='contract'){const rw=m=='c'?2500:3500;S.tasks.push({id:++S.nid,title:'Client contract',desc:'Large client contract',pri:'high',due:day()+(m=='c'?14:10),emp:e.id,work:150,p:0,done:false,reward:rw});S.rep+=5}
+say((auto?'Auto-approved: ':'Approved: ')+e.name+"'s "+a.k+(m=='c'?' (modified)':''));S.first.appr=1}
+/* ---- employee movement ---- */
+function move(dt){S.emps.forEach(e=>{const dx=e.tx-e.x,dy=e.ty-e.y,d=Math.hypot(dx,dy);
+if(d>.06){const s=Math.min(d,1.3*spd*dt);e.x+=dx/d*s;e.y+=dy/d*s;e.sit=false}
+else{e.sit=e.mode=='desk';e.wait-=dt*spd;if(e.wait<=0){e.wait=4+Math.random()*8;const wk=hour()>=9&&hour()<17;
+if(Math.random()<(wk?.65:.15)){e.mode='desk';e.tx=DESKS[e.desk][0]+.5;e.ty=DESKS[e.desk][1]+1.1}else{const s=rnd(AWAY);e.mode='away';e.tx=s[0];e.ty=s[1]}}}})}
+/* ---- isometric rendering ---- */
+const P=(x,y)=>[ox+(x-y)*32*z,oy+(x+y)*16*z],Q=(x,y,h)=>{const p=P(x,y);return[p[0],p[1]-h*z]};
+function sh(c,k){return'#'+[1,3,5].map(i=>Math.min(255,parseInt(c.substr(i,2),16)*k|0).toString(16).padStart(2,'0')).join('')}
+function poly(p,c){cx.beginPath();p.forEach((q,i)=>i?cx.lineTo(q[0],q[1]):cx.moveTo(q[0],q[1]));cx.closePath();cx.fillStyle=c;cx.fill()}
+function box(x,y,w,d,h,c,z0=0){const f=(a,b,hh)=>Q(a,b,z0+hh);poly([f(x,y,h),f(x+w,y,h),f(x+w,y+d,h),f(x,y+d,h)],sh(c,1.12));
+poly([f(x,y+d,h),f(x+w,y+d,h),f(x+w,y+d,0),f(x,y+d,0)],sh(c,.85));poly([f(x+w,y+d,h),f(x+w,y,h),f(x+w,y,0),f(x+w,y+d,0)],sh(c,.68))}
+const add=(d,f)=>items.push([d,f]);
+function person(x,y,l,sit,t,tag){const[px,py]=P(x,y),k=z*2,w=sit?0:Math.sin(t*9)*k,lh=sit?5:9;
+cx.fillStyle='#0003';cx.beginPath();cx.ellipse(px,py,6*k,2.4*k,0,0,7);cx.fill();
+cx.fillStyle='#2b3a67';cx.fillRect(px-3*k,py-lh*k,2*k,lh*k+Math.max(0,w));cx.fillRect(px+k,py-lh*k,2*k,lh*k-Math.min(0,w));
+const by=py-(sit?14:18)*k;cx.fillStyle=l[2];cx.fillRect(px-4*k,by,8*k,9*k);cx.fillRect(px-5*k,by+k,1.5*k,6*k);cx.fillRect(px+3.5*k,by+k,1.5*k,6*k);
+cx.fillStyle=l[0];cx.fillRect(px-3*k,by-6*k,6*k,6*k);cx.fillStyle=l[1];cx.fillRect(px-3*k,by-7*k,6*k,2.5*k);
+if(tag){cx.font=(14*z+4)+'px system-ui';cx.textAlign='center';cx.fillText(tag,px,by-10*k)}}
+function draw(t){const W=cv.clientWidth,H=cv.clientHeight,dp=devicePixelRatio||1;if(cv.width!=W*dp||cv.height!=H*dp){cv.width=W*dp;cv.height=H*dp}
+cx.setTransform(dp,0,0,dp,0,0);cx.clearRect(0,0,W,H);if(!S)return;z=Math.min(W/660,H/430);ox=W/2;oy=(H-410*z)/2+90*z;
+for(let i=0;i<10;i++)for(let j=0;j<10;j++)poly([P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],(i+j)%2?'#c9ccf0':'#bcc0ea');
+poly([Q(0,0,90),Q(0,10,90),Q(0,10,0),Q(0,0,0)],'#e6e0d4');poly([Q(0,0,90),Q(10,0,90),Q(10,0,0),Q(0,0,0)],'#d4cebf');
+poly([Q(0,0,6),Q(0,10,6),Q(0,10,0),Q(0,0,0)],'#6e86c9');poly([Q(0,0,6),Q(10,0,6),Q(10,0,0),Q(0,0,0)],'#6e86c9');
+[[1.8,3.6],[4.6,6.4]].forEach(a=>poly([Q(a[0],0,40),Q(a[1],0,40),Q(a[1],0,72),Q(a[0],0,72)],'#a5d8ff'));
+[[2,4],[5.5,7.5]].forEach(a=>poly([Q(0,a[0],40),Q(0,a[1],40),Q(0,a[1],72),Q(0,a[0],72)],'#a5d8ff'));
+items=[];
+DESKS.forEach(([dx,dy],i)=>{add(dx+dy+1,()=>{box(dx,dy,1,.9,12,'#d9c7a3');box(dx+.25,dy+.2,.5,.1,10,'#4a90d9',12);box(dx+.1,dy+.45,.5,.3,1,'#eee',12)});
+add(dx+dy+1.5,()=>box(dx+.3,dy+1.0,.4,.4,6,'#3b5fb0'))});
+add(4.2,()=>{box(8,3,1.4,.9,12,'#c9a46a');box(8.4,3.2,.5,.1,10,'#4a90d9',12)});add(8.3,()=>box(8.5,4.1,.4,.4,6,'#2b4a90'));
+add(1,()=>{box(.2,.1,1.2,.6,46,'#7b6bd6')});add(9,()=>box(8.3,.1,1.2,.6,30,'#4f7fd6'));
+add(16,()=>{box(8,7,.25,2,22,'#254bb0');box(8,7,1.2,2,10,'#2f5fd0')});add(9,()=>{box(1,8.3,.5,.5,8,'#8a5a3a');box(.95,8.25,.6,.6,22,'#2f9e4f',8)});
+add(13,()=>box(4,8.3,2,.9,10,'#2d6a5a'));add(6,()=>box(.2,5.2,.6,.6,26,'#cfe8ff'));add(10,()=>box(9,5.2,.7,.7,16,'#dddddd'));
+if(S.home.plant)add(2,()=>box(2.1,.2,.5,.5,16,'#2f9e4f'));
+add(8.8,()=>person(8.5,4.5,[SKIN[0],'#222',SHIRT[S.shirt]],true,t));
+S.emps.forEach(e=>add(e.x+e.y+.3,()=>{let g=S.appr.some(a=>a.emp==e.id)?'\u2757':'';if(!g&&!e.sit&&e.mode=='away'&&S.emps.some(o=>o!=e&&Math.hypot(o.x-e.x,o.y-e.y)<1.6))g='\uD83D\uDCAC';
+person(e.x,e.y,e.look,e.sit,t+e.id,g||(sel==e.id?'\u25BC':''))}));
+items.sort((a,b)=>a[0]-b[0]).forEach(i=>i[1]());
+const h=hour(),a=h>=21||h<6?.35:h>=19||h<7?.15:0;if(a){cx.fillStyle='rgba(15,20,70,'+a+')';cx.fillRect(0,0,W,H)}}
+cv.onclick=ev=>{if(!S)return;const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;
+const e=S.emps.find(e=>{const p=P(e.x,e.y);return Math.hypot(p[0]-mx,p[1]-18*z-my)<28*z});if(e){sel=e.id;tab='team';R()}};
+/* ---- UI ---- */
+const bar=(l,v,c)=>`<span class=b>${l}<i style="--w:${cl(v)}%;--c:${c}"></i></span>`;
+function ui(){if(!S)return;const n=S.needs,h=hour(),hh=h|0,mm=(h%1)*60|0;
+$('#top').innerHTML=`<b>Day ${day()} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}</b>
+<button data-a=pause class="${paused?'on':''}">${paused?'\u25B6':'\u23F8'}</button>${[1,2,3].map(s=>`<button data-a=spd data-v=${s} class="${spd==s&&!paused?'on':''}">${s}x</button>`).join('')}
+<span>\uD83D\uDCBC ${$f(S.cash)} &nbsp;\uD83D\uDC64 ${$f(S.pcash)}</span>${bar('Energy',n.energy,'#f0c040')}${bar('Food',n.hunger,'#e08a2e')}${bar('Clean',n.hygiene,'#4ac')}${bar('Stress',n.stress,'#d44')}${bar('Mood',mood(),'#3c6')}`}
+const hint=()=>!S.tasks.length?'Next: open Tasks and assign work to Mia.':S.appr.length?'Next: open Inbox. Your team needs a decision.':S.cands.length?'Next: interview and hire a candidate in HR.':'Keep growing: source candidates in HR, care for your needs in Life, or give more tasks.';
+const pg=(a,b)=>`<div class=pg><i style="width:${cl(a/b*100)}%"></i></div>`,btn=(a,v,l,c='')=>`<button class="a ${c}" data-a=${a} data-v="${v}">${l}</button>`;
+const V={
+dash:()=>{const o=S.tasks.filter(t=>!t.done);return`<h3>${esc(S.co)}</h3><p class=hint>${hint()}</p><p>Reputation <b>${S.rep|0}</b> \u00B7 Team <b>${S.emps.length}/6</b> \u00B7 Your mood <b>${mood()}</b></p><h4>Agenda</h4>${o.map(t=>`<div class=card>${esc(t.title)}<br>Due day ${t.due} ${pg(t.p,t.work)}</div>`).join('')||'<p>No open tasks.</p>'}`},
+team:()=>{const e=S.emps.find(x=>x.id==sel);return S.emps.map(x=>btn('sel',x.id,esc(x.name),x==e?'g':'')).join('')+(e?`<div class=card><b>${esc(e.name)}</b> \u00B7 ${e.role} \u00B7 ${e.pers}<br>Skill ${e.skill|0} \u00B7 Morale ${e.morale|0} \u00B7 Energy ${e.energy|0} \u00B7 Salary ${$f(e.salary)}/mo<br><small>${esc(e.trait)}</small></div>
+<div>${btn('chat','update','Ask for update')}${btn('chat','problem','Discuss a problem')}${btn('chat','praise','Give praise','g')}${btn('chat','fb','Give feedback')}${btn('fire',e.id,'Dismiss','r')}</div>
+<div class=card>${(chats[e.id]||[]).map(m=>`<div class=msg>${m}</div>`).join('')||'<small>Say something to '+esc(e.name)+'.</small>'}</div>`:'<p>Select an employee (or click one in the office).</p>')},
+tasks:()=>`<div class=card><b>New task</b><input id=tt placeholder="Title"><textarea id=td placeholder="Description / expected result" rows=2></textarea>
+<select id=tp><option value=40>Low priority</option><option value=60 selected>Normal</option><option value=90>High</option></select><input id=tdue type=number value=5 min=1 placeholder="Deadline (days)">
+<select id=te>${S.emps.map(e=>`<option value=${e.id}>${esc(e.name)} (${e.role})</option>`).join('')}</select>${btn('addtask','','Assign task','g')}</div>`+
+S.tasks.slice().reverse().map(t=>{const e=S.emps.find(x=>x.id==t.emp);return`<div class=card><b>${esc(t.title)}</b> ${t.done?'\u2705':''}<br><small>${esc(t.desc)} \u00B7 ${e?esc(e.name):'unassigned'} \u00B7 due day ${t.due} \u00B7 ${$f(t.reward)}</small>${pg(t.p,t.work)}</div>`}).join(''),
+inbox:()=>(S.appr.map(a=>{const e=S.emps.find(x=>x.id==a.emp);return`<div class=card><b>${esc(e.name)}</b>: ${a.t}<br><small>Cost ${$f(a.cost)} \u00B7 Risk: ${a.risk} \u00B7 Benefit: ${a.ben}</small><br>${btn('ap',a.id+':y','Approve','g')}${btn('ap',a.id+':n','Reject','r')}${btn('ap',a.id+':c','Ask for changes')}</div>`}).join('')||'<p>No pending approvals.</p>')+'<h4>Messages</h4>'+S.log.map(m=>`<div class=msg>${esc(m)}</div>`).join(''),
+hr:()=>`${btn('source','','Source candidates ($150)','g')}<p><small>Team ${S.emps.length}/6 desks. You approve every hire.</small></p>`+S.cands.map(c=>`<div class=card><b>${esc(c.name)}</b> \u00B7 ${c.role} \u00B7 asks ${$f(c.salary)}/mo<br>Skill ${c.int?c.skill:(c.skill/10|0)*10+'-'+((c.skill/10|0)*10+10)} \u00B7 ${c.int?c.pers+' \u00B7 '+esc(c.trait):'not interviewed'}<br>
+${c.int?`<small>"${INT[c.pers]}"</small><br>`:''}${c.int?'':btn('int',c.id,'Interview')}${btn('hire',c.id,'Hire','g')}${btn('rej',c.id,'Reject','r')}</div>`).join(''),
+fin:()=>`<h3>Finance</h3><div class=card>Company cash <b>${$f(S.cash)}</b><br>This month: revenue ${$f(S.fin.rev)} \u00B7 expenses ${$f(S.fin.exp)} \u00B7 profit ${$f(S.fin.rev-S.fin.exp)}<br><small>Payroll + $800 rent charged on day 1 of each 30-day month.</small></div>
+<div class=card>Personal savings <b>${$f(S.pcash)}</b> (rent $300/mo + home upkeep)</div><label>Monthly owner draw ($)<input id=fd type=number value=${S.draw}></label><label>Auto-approve spending up to ($, 0 = always ask)<input id=fl type=number value=${S.limit}></label>${btn('setfin','','Save policy','g')}`,
+life:()=>`<h4>Daily routine</h4>${btn('life','sleep','Sleep 7h')}${btn('life','eat','Eat out ($12)')}${btn('life','cook','Cook ($8)')}${btn('life','shower','Shower')}${btn('life','late','Work late 2h','r')}${btn('life','off','Take day off','g')}
+<h4>Hobbies</h4>${btn('life','game','Gaming')}${btn('life','read','Study leadership')}${btn('life','gym','Exercise')}${btn('life','art','Creative project')}
+<h4>Home upgrades</h4>${btn('buy','bed','Better bed $400 ('+S.home.bed+')')}${btn('buy','plant','Plants $60 ('+S.home.plant+')')}${btn('buy','setup','Home desk $300 ('+S.home.setup+')')}
+<h4>Relationships</h4>${Object.keys(S.rel).map(k=>`<div class=card><b>${k}</b> (${S.rel[k].k}) trust ${S.rel[k].v|0}${pg(S.rel[k].v,100)}${btn('soc',k+':talk','Talk')}${btn('soc',k+':gift','Gift $15')}${btn('soc',k+':out','Go out $30')}</div>`).join('')}
+<h4>Skills</h4><small>${Object.entries(S.skills).map(([k,v])=>k+' '+v.toFixed(1)).join(' \u00B7 ')}</small>`,
+set:()=>`<h3>${esc(S.name)}, ${esc(S.trait)}</h3>${btn('save','','Save now','g')}${btn('load','','Load save')}${btn('export','','Export JSON')}${btn('newg','','New game','r')}<textarea id=imp rows=3 placeholder="Paste save JSON"></textarea>${btn('import','','Import JSON')}<p><small>Autosaves every day.</small></p>`};
+function R(){if(!S)return;$('#tabs').innerHTML=TABS.map(([k,l])=>`<button class="${k==tab?'on':''}" data-a=tab data-v=${k}>${l}${k=='inbox'&&S.appr.length?' ('+S.appr.length+')':''}</button>`).join('');$('#panel').innerHTML=V[tab]()}
+const need=(k,v)=>S.needs[k]=cl(S.needs[k]+v),sk=(k,v)=>S.skills[k]+=v;
+const A={tab:v=>{tab=v;R()},sel:v=>{sel=+v;R()},pause:()=>{paused=!paused;ui()},spd:v=>{spd=+v;paused=false;ui()},
+chat(v){const e=S.emps.find(x=>x.id==sel),c=chats[e.id]=chats[e.id]||[],t=S.tasks.find(t=>t.emp==e.id&&!t.done);
+const lab={update:'Update?',problem:"What's on your mind?",praise:'Great work!',fb:'Some feedback...'}[v];let r=L[e.pers][v];
+if(v=='update')r+=t?` "${t.title}" is ${t.p/t.work*100|0}% done.`:' I have no task right now.';
+if(v=='praise')e.morale=cl(e.morale+5+S.skills.leadership);if(v=='fb'){e.morale=cl(e.morale-1);e.skill=cl(e.skill+1+S.skills.leadership/5)}
+if(v=='problem'&&Math.random()<.5)genReq();c.push('<b>You:</b> '+lab,'<b>'+esc(e.name)+':</b> '+esc(r));R()},
+fire(v){if(confirm('Dismiss this employee? This cannot be undone.')){S.emps=S.emps.filter(e=>e.id!=v);S.tasks.forEach(t=>{if(t.emp==v)t.emp=null});sel=null;R()}},
+addtask(){const w=+$('#tp').value,e=S.emps.find(x=>x.id==$('#te').value);if(!$('#tt').value||!e)return alert('Enter a title and choose an employee.');
+S.tasks.push({id:++S.nid,title:$('#tt').value,desc:$('#td').value||'-',pri:w,due:day()+Math.max(1,+$('#tdue').value||5),emp:e.id,work:w,p:0,done:false,reward:w*9});
+const d=Math.ceil(w/(e.skill/100*.8*.8*1.6*48));say(e.name+': "My plan: start now, expect about '+d+' day(s)."');if(!S.first.ap){S.first.ap=1;genReq('train')}R()},
+ap(v){const[i,m]=v.split(':');resolve(+i,m);R();ui()},
+source(){if(S.cash<150)return alert('Not enough cash.');S.cash-=150;S.fin.exp+=150;S.cands=[1,2,3].map(()=>{const c=mkEmp(rnd(ROLES));c.id=++S.nid;return c});say('HR sourced 3 candidates.');R();ui()},
+int(v){S.cands.find(c=>c.id==v).int=true;R()},rej(v){S.cands=S.cands.filter(c=>c.id!=v);R()},
+hire(v){if(S.emps.length>=6)return alert('Office is full (6 desks).');const c=S.cands.find(c=>c.id==v);S.cands=S.cands.filter(x=>x!=c);seat(c);say('Hired '+c.name+' as '+c.role+'.');S.first.hire=1;R()},
+setfin(){S.draw=+$('#fd').value||0;S.limit=+$('#fl').value||0;say('Policy updated.');R()},
+life(v){const n=S.needs;({sleep(){adv(420);need('energy',70+S.home.bed*8);need('stress',-15)},eat(){if(S.pcash<12)return;S.pcash-=12;need('hunger',50);adv(30)},cook(){if(S.pcash<8)return;S.pcash-=8;need('hunger',60);sk('cooking',.2);adv(40)},
+shower(){need('hygiene',60);adv(20)},late(){S.tasks.forEach(t=>{if(!t.done&&t.emp)t.p+=6});need('energy',-15);need('stress',10);Object.values(S.rel).forEach(r=>r.v=cl(r.v-1.5));say('You worked late: progress up, energy and relationships down.');adv(120)},
+off(){need('stress',-25);need('energy',15);adv(480)},game(){need('stress',-15);need('energy',-5);adv(60)},read(){sk('leadership',.3);need('stress',-5);need('energy',-5);adv(60)},
+gym(){sk('fitness',.3);need('energy',-10);need('stress',-15);need('hygiene',-15);adv(60)},art(){sk('creativity',.3);need('stress',-10);adv(60)}})[v]();ui();R()},
+buy(v){const c={bed:400,plant:60,setup:300}[v];if(S.pcash<c)return alert('Not enough personal savings.');S.pcash-=c;S.home[v]++;say('Bought a home upgrade.');ui();R()},
+soc(v){const[k,m]=v.split(':'),c={talk:0,gift:15,out:30}[m];if(S.pcash<c)return;S.pcash-=c;S.rel[k].v=cl(S.rel[k].v+{talk:3,gift:6,out:8}[m]);need('stress',-6);sk('leadership',.05);adv(m=='out'?120:30)},
+save(){save();alert('Saved.')},load(){const d=localStorage.getItem(KEY);if(d){S=JSON.parse(d);R();ui()}},
+export(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='office-life-save.json';a.click()},
+import(){try{S=JSON.parse($('#imp').value);R();ui()}catch(e){alert('Invalid JSON')}},
+newg(){if(confirm('Delete your save and start over?')){localStorage.removeItem(KEY);creator()}},
+start(){const b=$('#cb').value.split(',');newState({name:$('#cn').value||'Alex',co:$('#cc').value||'Bright Co.',trait:$('#ct').value,shirt:+$('#cs').value,cash:+b[0],pcash:+b[1]});$('#modal').style.display='none';tab='dash';R();ui()}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a])A[b.dataset.a](b.dataset.v)});
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function creator(){$('#modal').style.display='flex';$('#modal').innerHTML=`<div class=mbox><h2>Office & Life Tycoon</h2><input id=cn placeholder="Your name"><input id=cc placeholder="Company name">
+<select id=ct><option>Driven</option><option>Easygoing</option><option>Analytical</option></select><select id=cs><option value=0>Blue shirt</option><option value=1>Red shirt</option><option value=2>Green shirt</option></select>
+<select id=cb><option value="6000,600">Startup dreamer (balanced)</option><option value="3000,2000">Ex-corporate (more savings)</option><option value="9000,200">Inheritor (more company cash)</option></select>${btn('start','','Start game','g')}</div>`}
+function loop(ts){const dt=Math.min(.1,(ts-last)/1000);last=ts;if(S){if(!paused){acc+=dt*spd;while(acc>=.5){acc-=.5;tick();ui();if(++tc%6==0&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&['dash','tasks'].includes(tab))R()}move(dt)}}draw(ts/1000);requestAnimationFrame(loop)}
+try{const d=localStorage.getItem(KEY);if(d){S=JSON.parse(d);R();ui()}else creator()}catch(e){creator()}
+requestAnimationFrame(loop);
+</script></body></html>
